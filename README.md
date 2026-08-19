@@ -1,7 +1,6 @@
 # Traqi — Next.js application
 
-The complete Scentelle feature set rebuilt in the Traqi "Modern Indigo" design
-system, on **Next.js 14 (App Router) + TypeScript + Tailwind**, backed by the
+Traqi, a modern design system, on **Next.js 14 (App Router) + TypeScript + Tailwind**, backed by the
 **traqi-prod** Firebase project.
 
 ## Requirements
