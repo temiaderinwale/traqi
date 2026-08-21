@@ -7,8 +7,8 @@ const archivo = Archivo({ subsets: ['latin'], weight: ['600', '700', '800'], var
 const inter = Inter({ subsets: ['latin'], weight: ['400', '500', '600', '700'], variable: '--font-inter', display: 'swap' });
 
 export const metadata: Metadata = {
-  title: { default: 'Traqi — Business Manager', template: '%s — Traqi' },
-  description: 'Traqi — track it, grow it. Sales, inventory, customers and financials in one workspace.'
+  title: { default: 'Traqi - Business Manager', template: '%s - Traqi' },
+  description: 'Traqi - track it, grow it. Sales, inventory, customers and financials in one workspace.'
 };
 
 /* Light is the default; dark only when the user chose it. */

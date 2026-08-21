@@ -9,8 +9,20 @@ import { useTraqi } from '@/lib/store';
 import { authError, strength, nextId } from '@/lib/format';
 import { Field } from '@/components/ui';
 import { Mark, Wordmark } from '@/components/Brand';
+import Preloader from '@/components/Preloader';
 
 type Panel = 'si' | 'pw' | 'reg' | 'reset';
+
+/* PINs and passwords are always typed fresh — browsers and password managers
+   refill any password box on sight, including the 4-digit PIN. 'new-password'
+   is what actually stops Chrome; the data-* flags cover LastPass/1Password/
+   Dashlane. Names, emails and usernames still autofill normally. */
+const NO_AUTOFILL = {
+  autoComplete: 'new-password',
+  'data-lpignore': 'true',
+  'data-1p-ignore': 'true',
+  'data-form-type': 'other'
+} as const;
 
 const GoogleIcon = () => (
   <svg width="17" height="17" viewBox="0 0 48 48" aria-hidden="true">
@@ -28,6 +40,10 @@ export default function AuthPage() {
   const [panel, setPanel] = useState<Panel>('si');
   const [msg, setMsg] = useState<{ text: string; type: 'err' | 'ok' } | null>(null);
   const [loading, setLoading] = useState(false);
+  /* Credentials accepted — raise the preloader and keep it up. The store still
+     has to load the workspace and the router still has to reach /dashboard;
+     without this the form would reappear for both of those beats. */
+  const [entering, setEntering] = useState(false);
   const [showPin, setShowPin] = useState(false);
   const [showPw, setShowPw] = useState(false);
 
@@ -43,6 +59,16 @@ export default function AuthPage() {
     if (t.stage === 'ready' || t.stage === 'pin') router.replace('/dashboard');
   }, [t.stage, router]);
 
+  /* Signing out from a post-auth panel drops the curtain and returns the form. */
+  useEffect(() => { if (t.stage === 'signedOut') setEntering(false); }, [t.stage]);
+
+  /* Sign-up CTAs link to /auth?tab=register; everything else opens on Sign In.
+     Read after mount so the server-rendered markup stays the 'si' default. */
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    if (tab === 'register' || tab === 'reg') setPanel('reg');
+  }, []);
+
   const st = strength(rPw);
   const go = (p: Panel) => { setPanel(p); setMsg(null); };
 
@@ -52,16 +78,19 @@ export default function AuthPage() {
     setLoading(true);
     const res = await t.signInPin(siUser, siPin);
     setLoading(false);
-    if (res === 'badpin') setMsg({ text: 'Incorrect PIN. Try again.', type: 'err' });
+    if (res === 'ok') setEntering(true);
+    else if (res === 'badpin') setMsg({ text: 'Incorrect PIN. Try again.', type: 'err' });
     else if (res === 'notfound') { setMsg({ text: "PIN sign-in isn't set up on this device yet — sign in once with Google or your password.", type: 'err' }); setTimeout(() => go('pw'), 2600); }
     else if (res === 'badcred') { setMsg({ text: 'Saved login expired — sign in with your password to restore PIN sign-in.', type: 'err' }); setTimeout(() => go('pw'), 2400); }
+    else if (res === 'cancelled') setMsg({ text: 'Google sign-in was closed before it finished — try again.', type: 'err' });
+    else if (res === 'wrongaccount') setMsg({ text: `That's a different Google account. Choose the one ${siUser} was set up with.`, type: 'err' });
     else if (res === 'error') setMsg({ text: 'Something went wrong. Please try again.', type: 'err' });
   };
 
   const doPw = async () => {
     if (!pwEmail || !pwPass) return setMsg({ text: 'Fill in both fields.', type: 'err' });
     setLoading(true);
-    try { await t.signInPassword(pwEmail, pwPass); }
+    try { await t.signInPassword(pwEmail, pwPass); setEntering(true); }
     catch (e: any) { setMsg({ text: authError(e?.code), type: 'err' }); }
     setLoading(false);
   };
@@ -72,14 +101,15 @@ export default function AuthPage() {
     if (rPw.length < 6) return setMsg({ text: 'Password must be at least 6 characters.', type: 'err' });
     if (!/^\d{4}$/.test(rPin)) return setMsg({ text: 'PIN must be exactly 4 digits.', type: 'err' });
     setLoading(true);
-    try { await t.register(rEmail, rPw, rUser, rPin, rBiz); }
+    try { await t.register(rEmail, rPw, rUser, rPin, rBiz); setEntering(true); }
     catch (e: any) { setMsg({ text: authError(e?.code), type: 'err' }); }
     setLoading(false);
   };
 
   const doGoogle = async () => {
     setLoading(true);
-    try { await t.googleAuth(); } catch (e: any) { setMsg({ text: authError(e?.code), type: 'err' }); }
+    /* Resolves once the Google account is picked and the popup closes. */
+    try { await t.googleAuth(); setEntering(true); } catch (e: any) { setMsg({ text: authError(e?.code), type: 'err' }); }
     setLoading(false);
   };
 
@@ -92,6 +122,8 @@ export default function AuthPage() {
   };
 
   /* ---------- Post-auth stages ---------- */
+  /* Signed in and on the way to /dashboard — hold the curtain over the redirect. */
+  if (t.stage === 'ready' || t.stage === 'pin') return <Preloader />;
   if (t.stage === 'verify') return <Centered><VerifyPanel /></Centered>;
   if (t.stage === 'completeProfile') {
     return (
@@ -103,7 +135,7 @@ export default function AuthPage() {
           <Field label="Username"><input value={gUser} onChange={e => setGUser(e.target.value)} placeholder="amaka" /></Field>
         </div>
         <Field label="4-digit PIN">
-          <input type="password" className="pin-input" maxLength={4} inputMode="numeric" placeholder="••••"
+          <input type="password" className="pin-input" maxLength={4} inputMode="numeric" placeholder="••••" {...NO_AUTOFILL}
             value={gPin} onChange={e => setGPin(e.target.value.replace(/\D/g, '').slice(0, 4))} />
         </Field>
         <button className="btn btn-primary btn-block" style={{ marginTop: 18 }} disabled={loading}
@@ -121,6 +153,8 @@ export default function AuthPage() {
     );
   }
   if (t.stage === 'onboarding') return <Onboarding />;
+  /* Credentials accepted, workspace still loading — no glimpse of the form. */
+  if (entering) return <Preloader />;
 
   /* ---------- Sign in / register ---------- */
   return (
@@ -171,7 +205,7 @@ export default function AuthPage() {
                   <button className="link-btn" onClick={() => go('pw')}>Forgot PIN? Use password →</button>
                 </div>
                 <div className="eye-wrap">
-                  <input type={showPin ? 'text' : 'password'} className="pin-input" maxLength={4} inputMode="numeric" placeholder="••••"
+                  <input type={showPin ? 'text' : 'password'} className="pin-input" maxLength={4} inputMode="numeric" placeholder="••••" {...NO_AUTOFILL}
                     value={siPin} onChange={e => setSiPin(e.target.value.replace(/\D/g, '').slice(0, 4))} onKeyDown={e => e.key === 'Enter' && doPin()} />
                   <button className="eye-btn" onClick={() => setShowPin(v => !v)} tabIndex={-1}>{showPin ? <EyeOff /> : <Eye />}</button>
                 </div>
@@ -194,7 +228,7 @@ export default function AuthPage() {
               <div className="field" style={{ marginTop: 14 }}>
                 <label className="label">Password</label>
                 <div className="eye-wrap">
-                  <input type={showPw ? 'text' : 'password'} value={pwPass} onChange={e => setPwPass(e.target.value)}
+                  <input type={showPw ? 'text' : 'password'} value={pwPass} onChange={e => setPwPass(e.target.value)} {...NO_AUTOFILL}
                     placeholder="Your password" onKeyDown={e => e.key === 'Enter' && doPw()} />
                   <button className="eye-btn" onClick={() => setShowPw(v => !v)} tabIndex={-1}>{showPw ? <EyeOff /> : <Eye />}</button>
                 </div>
@@ -219,15 +253,15 @@ export default function AuthPage() {
               <Field label="Email address"><input type="email" value={rEmail} onChange={e => setREmail(e.target.value)} placeholder="you@business.com" /></Field>
               <div className="field" style={{ marginTop: 14 }}>
                 <label className="label">Password</label>
-                <input type="password" value={rPw} onChange={e => setRPw(e.target.value)} placeholder="At least 6 characters" />
+                <input type="password" value={rPw} onChange={e => setRPw(e.target.value)} placeholder="At least 6 characters" {...NO_AUTOFILL} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
                   <div className="strength-bar"><span style={{ width: st.width, background: st.color }} /></div>
                   <span style={{ fontSize: '.7rem', fontWeight: 700, width: '5rem', textAlign: 'right', color: st.label ? st.color : 'var(--text-3)' }}>{st.label}</span>
                 </div>
               </div>
               <div className="form-grid" style={{ marginTop: 14 }}>
-                <Field label="Confirm password"><input type="password" value={rPw2} onChange={e => setRPw2(e.target.value)} placeholder="Repeat password" /></Field>
-                <Field label="4-digit PIN"><input type="password" className="pin-input" maxLength={4} inputMode="numeric" placeholder="••••"
+                <Field label="Confirm password"><input type="password" value={rPw2} onChange={e => setRPw2(e.target.value)} placeholder="Repeat password" {...NO_AUTOFILL} /></Field>
+                <Field label="4-digit PIN"><input type="password" className="pin-input" maxLength={4} inputMode="numeric" placeholder="••••" {...NO_AUTOFILL}
                   value={rPin} onChange={e => setRPin(e.target.value.replace(/\D/g, '').slice(0, 4))} /></Field>
               </div>
               <p className="hint" style={{ marginTop: 10 }}>Your PIN is a quick sign-in for daily use. Keep your password for account recovery.</p>

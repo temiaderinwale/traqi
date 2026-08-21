@@ -4,7 +4,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Settings, Sun, Moon, Download, Upload, Trash2, Pencil } from 'lucide-react';
 import { useTraqi } from '@/lib/store';
-import { updateBundlePin, saveWorkspace } from '@/lib/firebase';
+import { saveWorkspace } from '@/lib/firebase';
 import { COLLECTIONS, DEFAULT_CONFIG, Workspace } from '@/lib/types';
 import { todayStr } from '@/lib/format';
 import { Modal, Field } from './ui';
@@ -44,7 +44,6 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
     if (pin !== pin2) { showToast('PINs do not match'); return; }
     saveConfig({ pin });
     if (fbUser) saveWorkspace(fbUser.uid, { pin }).catch(() => {});
-    updateBundlePin(ws.config.ownerName, pin);
     setPin(''); setPin2('');
     showToast('PIN updated');
   };

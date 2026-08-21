@@ -3,10 +3,10 @@
 
 import Link from 'next/link';
 import {
-  ArrowRight, ArrowUp, Banknote, BarChart3, BellRing, Cake, Check, CheckCircle2, ChevronRight,
-  Coffee, Gem, Hourglass, Instagram, Leaf, Linkedin, Package, Receipt, Scissors, ShoppingBag,
-  Shirt, Sparkles, Star, Truck, Twitter, Users
+  ArrowRight, ArrowUp, Banknote, BarChart3, BellRing, Check, CheckCircle2, ChevronRight,
+  Hourglass, Instagram, Linkedin, Package, Receipt, ShoppingBag, Star, Twitter, Users
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Mark, Wordmark } from '@/components/Brand';
 import LandingNav, { useAppEntry } from './LandingNav';
 import Showcase from './Showcase';
@@ -22,11 +22,11 @@ const FEATURES = [
   { icon: BarChart3, title: 'Financial Reports', desc: "Revenue, expenses, margins and monthly targets in one clear report you'll actually read." }
 ];
 
-const LOGOS = [
-  { icon: Sparkles, name: 'Scentelle' }, { icon: Leaf, name: 'Ascendia' },
-  { icon: Gem, name: 'Adire Luxe' }, { icon: Coffee, name: 'Kola House' },
-  { icon: Scissors, name: 'FadeCraft' }, { icon: Shirt, name: 'Èkó Threads' },
-  { icon: Cake, name: 'SugarBloom' }, { icon: Truck, name: 'SwiftHaul' }
+const LOGOS: { name: string; icon?: LucideIcon }[] = [
+  { name: 'Ascendia' },
+  { name: 'TheAbiodunBabs Consulting' },
+  { name: 'LinkedInLocal Abeokuta', icon: Linkedin },
+  { name: 'EduEdge Institute' }
 ];
 
 const STATS = [
@@ -172,7 +172,7 @@ export default function Landing() {
                 const Icon = l.icon;
                 return (
                   <span key={pass + l.name} className="font-display font-bold text-xl whitespace-nowrap flex items-center gap-2">
-                    <Icon className="h-5 w-5" />{l.name}
+                    {Icon && <Icon className="h-5 w-5" />}{l.name}
                   </span>
                 );
               }))}
@@ -252,7 +252,7 @@ export default function Landing() {
                   </div>
                   <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-500/90 text-amber-950 rounded-full px-3 py-1 whitespace-nowrap">Best value</span>
                 </div>
-                <p className="mt-5"><span className="tnum font-display font-extrabold text-5xl">₦8,500</span><span className="text-sm text-indigo-200"> / month</span></p>
+                <p className="mt-5"><span className="tnum font-display font-extrabold text-5xl">₦49,500</span><span className="text-sm text-indigo-200"> / month</span></p>
                 <ul className="mt-6 space-y-3 text-sm text-indigo-100">
                   {PRO.map(f => (
                     <li key={f} className="flex items-center gap-2.5"><CheckCircle2 className="h-5 w-5 shrink-0 text-amber-400" />{f}</li>

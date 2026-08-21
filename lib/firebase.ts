@@ -27,18 +27,42 @@ export async function loadWorkspace(uid: string): Promise<Record<string, any>> {
   return snap.exists() ? snap.data() : {};
 }
 
-/* ---- Per-device PIN sign-in bundle ---- */
+/* ---- Per-device PIN sign-in bundle ----
+   Written the first time an account reaches this browser, whichever way it
+   signed in, so username + PIN works from then on. Password accounts keep
+   their credentials here and re-authenticate silently; Google accounts have
+   no password to keep, so they carry `uid` and re-authenticate against the
+   live Firebase session, falling back to one hinted Google tap. */
+export type Bundle = {
+  email: string;
+  pw: string;                        // '' for Google accounts
+  pin: string;
+  uid?: string;                      // absent in bundles written before this
+  provider?: 'password' | 'google';
+};
+
 const bundleKey = (username: string) => 'tq_u_' + String(username || '').trim().toLowerCase();
-export function storeBundle(username: string, email: string, pw: string, pin: string) {
-  const payload = JSON.stringify({ email, pw, pin });
+
+export function storeBundle(username: string, b: Bundle) {
+  if (!username) return;
+  const payload = JSON.stringify({ email: b.email || '', pw: b.pw || '', pin: b.pin || '', uid: b.uid || '', provider: b.provider || 'password' });
   localStorage.setItem(bundleKey(username), btoa(unescape(encodeURIComponent(payload))));
 }
-export function loadBundle(username: string): { email: string; pw: string; pin: string } | null {
+
+export function loadBundle(username: string): Bundle | null {
   const raw = localStorage.getItem(bundleKey(username));
   if (!raw) return null;
   try { return JSON.parse(decodeURIComponent(escape(atob(raw)))); } catch { return null; }
 }
-export function updateBundlePin(username: string, pin: string) {
+
+/** Merge into whatever is already on file — never clears a stored password. */
+export function rememberAccount(username: string, patch: Partial<Bundle>) {
   const b = loadBundle(username);
-  if (b) storeBundle(username, b.email, b.pw, pin);
+  storeBundle(username, {
+    email: patch.email || b?.email || '',
+    pw: patch.pw || b?.pw || '',
+    pin: patch.pin || b?.pin || '',
+    uid: patch.uid || b?.uid || '',
+    provider: patch.provider || b?.provider || 'password'
+  });
 }

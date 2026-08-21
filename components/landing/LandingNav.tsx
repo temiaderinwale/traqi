@@ -16,11 +16,13 @@ const LINKS = [
   { href: '#faq', label: 'FAQ' }
 ];
 
-/** 'ready' and 'pin' mean a workspace is open; every other stage belongs to /auth. */
+/** 'ready' and 'pin' mean a workspace is open; every other stage belongs to /auth.
+    `href` is for sign-up calls to action, so it opens /auth on the Register tab;
+    plain "Log in" links use '/auth', which lands on Sign In. */
 export function useAppEntry() {
   const { stage } = useTraqi();
   const inApp = stage === 'ready' || stage === 'pin';
-  return { inApp, href: inApp ? '/dashboard' : '/auth' };
+  return { inApp, href: inApp ? '/dashboard' : '/auth?tab=register' };
 }
 
 export default function LandingNav() {

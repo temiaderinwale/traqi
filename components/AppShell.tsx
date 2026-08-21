@@ -13,6 +13,7 @@ import { useTraqi } from '@/lib/store';
 import { useTheme } from '@/lib/theme';
 import { pendingTaskCount, unreadMsgCount } from '@/lib/compute';
 import { Mark, Wordmark } from './Brand';
+import Preloader from './Preloader';
 import { Field, Avatar } from './ui';
 import SettingsModal from './SettingsModal';
 
@@ -127,7 +128,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [openGroups, setOpenGroups] = useState<string[]>(GROUPS);
   const { locked, unlock } = useIdleLock(stage === 'ready');
 
-  useEffect(() => { if (stage === 'signedOut') router.replace('/auth'); }, [stage, router]);
+  /* Signed out, or caught mid-flow (verify / complete profile / onboarding):
+     those screens all live on /auth, so send the session there. */
+  useEffect(() => {
+    if (stage !== 'ready' && stage !== 'pin' && stage !== 'loading') router.replace('/auth');
+  }, [stage, router]);
 
   const current = NAV.find(n => n.href === pathname);
   const visible = (n: NavItem) => (n.owner ? isOwner : n.perm ? can(n.perm) : true);
@@ -142,14 +147,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     if ((current.owner && !isOwner) || (current.perm && !can(current.perm))) router.replace('/dashboard');
   }, [stage, current, isOwner, can, router]);
 
-  if (stage === 'loading') {
-    return <div className="preloader"><div className="preloader-inner">
-      <Mark size={64} /><div className="pl-word"><Wordmark /></div>
-      <div className="pl-track"><div className="pl-fill" /></div>
-    </div></div>;
-  }
+  if (stage === 'loading') return <Preloader />;
   if (stage === 'pin') return <RoleGate />;
-  if (stage !== 'ready') return <>{children}</>;
+  /* Never render app pages without the shell around them — on the way out the
+     page would otherwise flash bare and half-built. Hold the curtain until
+     /auth takes over. */
+  if (stage !== 'ready') return <Preloader />;
 
   const unread = unreadMsgCount(ws, user), tasks = pendingTaskCount(ws, user);
 

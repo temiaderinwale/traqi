@@ -7,7 +7,7 @@ import {
   signOut, updateProfile, sendEmailVerification, sendPasswordResetEmail,
   GoogleAuthProvider, signInWithPopup, User
 } from 'firebase/auth';
-import { auth, saveWorkspace, loadWorkspace, storeBundle, loadBundle, updateBundlePin } from './firebase';
+import { auth, saveWorkspace, loadWorkspace, storeBundle, loadBundle, rememberAccount } from './firebase';
 import {
   Workspace, CollectionKey, COLLECTIONS, DEFAULT_CONFIG, emptyWorkspace, CurrentUser, Config
 } from './types';
@@ -15,6 +15,7 @@ import { can, requiresApproval } from './compute';
 
 type Toast = { msg: string; undo?: () => void } | null;
 type AuthStage = 'loading' | 'signedOut' | 'verify' | 'completeProfile' | 'onboarding' | 'pin' | 'ready';
+export type PinResult = 'ok' | 'notfound' | 'badpin' | 'badcred' | 'wrongaccount' | 'cancelled' | 'error';
 
 type Ctx = {
   ws: Workspace;
@@ -37,7 +38,7 @@ type Ctx = {
   followUpsDone: Record<string, boolean>;
   markFollowUpDone: (saleId: string) => void;
   /* auth actions */
-  signInPin: (username: string, pin: string) => Promise<string>;
+  signInPin: (username: string, pin: string) => Promise<PinResult>;
   signInPassword: (email: string, pw: string) => Promise<void>;
   register: (email: string, pw: string, username: string, pin: string, biz: string) => Promise<void>;
   googleAuth: () => Promise<void>;
@@ -73,6 +74,8 @@ export function TraqiProvider({ children }: { children: React.ReactNode }) {
   const uidRef = useRef('');
   const freshSignIn = useRef(false);
   const pendingReg = useRef<Partial<Config> | null>(null);
+  /* Set before a PIN-triggered Google popup: only this uid may come back. */
+  const expectUid = useRef('');
   const wsRef = useRef(ws);
   wsRef.current = ws;
 
@@ -105,7 +108,10 @@ export function TraqiProvider({ children }: { children: React.ReactNode }) {
   }, [persist]);
 
   const saveConfig = useCallback((patch: Partial<Config>) => {
-    persist({ config: { ...wsRef.current.config, ...patch } });
+    const config = { ...wsRef.current.config, ...patch };
+    persist({ config });
+    /* Keep this browser's quick sign-in honest when the PIN or name changes. */
+    if (config.ownerName && config.pin) rememberAccount(config.ownerName, { pin: config.pin, email: config.email });
   }, [persist]);
 
   const saveTargets = useCallback((t: Record<string, number>) => persist({ targets: t }), [persist]);
@@ -170,6 +176,15 @@ export function TraqiProvider({ children }: { children: React.ReactNode }) {
   /* ---------- Auth state ---------- */
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async u => {
+      /* A PIN unlock named one account; Google answered with another. Turn it
+         away here, before any workspace loads or the router moves. */
+      if (u && expectUid.current && u.uid !== expectUid.current) {
+        expectUid.current = '';
+        freshSignIn.current = false;
+        await signOut(auth).catch(() => {});
+        return;
+      }
+      expectUid.current = '';
       setFbUser(u);
       if (!u) {
         setStage('signedOut');
@@ -194,7 +209,14 @@ export function TraqiProvider({ children }: { children: React.ReactNode }) {
       setWs(merged); wsRef.current = merged;
       localStorage.setItem(key(u.uid, 'config'), JSON.stringify(cfg));
       if (ok) saveWorkspace(u.uid, { config: cfg, bizName: cfg.bizName, username: cfg.ownerName, email: cfg.email, pin: cfg.pin }).catch(() => {});
-      if (cfg.ownerName && cfg.pin) updateBundlePin(cfg.ownerName, cfg.pin);
+      /* This account has now signed in on this browser — remember it (and any
+         later PIN change) so username + PIN can bring it back, Google included. */
+      if (cfg.ownerName && cfg.pin) {
+        rememberAccount(cfg.ownerName, {
+          email: u.email || cfg.email || '', pin: cfg.pin, uid: u.uid,
+          provider: isPasswordUser ? 'password' : 'google'
+        });
+      }
 
       if (!cfg.onboarded) { setStage('onboarding'); return; }
       if (freshSignIn.current) {
@@ -217,17 +239,56 @@ export function TraqiProvider({ children }: { children: React.ReactNode }) {
   }, [loadData]);
 
   /* ---------- Auth actions ---------- */
-  const signInPin = useCallback(async (username: string, pin: string) => {
+  /* Username + PIN, for any account that has signed in on this browser before.
+     Nothing here runs before the Google popup call, so it keeps the click
+     gesture and the browser doesn't block it. */
+  const signInPin = useCallback(async (username: string, pin: string): Promise<PinResult> => {
     const b = loadBundle(username);
     if (!b) return 'notfound';
-    if (b.pin !== pin) return 'badpin';
+    if (!b.pin || b.pin !== pin) return 'badpin';
     freshSignIn.current = true;
-    try { await signInWithEmailAndPassword(auth, b.email, b.pw); return 'ok'; }
-    catch (e: any) {
+
+    /* The Firebase session usually survives in this browser — the PIN is the
+       only thing standing between it and the workspace, and it just matched. */
+    const cur = auth.currentUser;
+    if (cur && (!b.uid || cur.uid === b.uid)) {
       freshSignIn.current = false;
-      return e?.code === 'auth/invalid-credential' || e?.code === 'auth/wrong-password' ? 'badcred' : 'error';
+      let cfg = wsRef.current.config;
+      if (!cfg.ownerName) cfg = (await loadData(cur.uid)).data.config;
+      setUser({ role: 'owner', id: 'owner', name: cfg.ownerName || username, perms: [] });
+      sessionStorage.setItem('traqi_role', 'owner');
+      sessionStorage.removeItem('traqi_roleId');
+      setStage('ready');
+      return 'ok';
     }
-  }, []);
+
+    /* Password account: the stored credentials re-authenticate silently. */
+    if (b.pw) {
+      try { await signInWithEmailAndPassword(auth, b.email, b.pw); return 'ok'; }
+      catch (e: any) {
+        freshSignIn.current = false;
+        return e?.code === 'auth/invalid-credential' || e?.code === 'auth/wrong-password' ? 'badcred' : 'error';
+      }
+    }
+
+    /* Google account whose session is gone. There is no password to replay, so
+       Google has to vouch once more — hinted at the stored address, which
+       normally resolves without an account chooser. */
+    expectUid.current = b.uid || '';
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters(b.email ? { login_hint: b.email } : { prompt: 'select_account' });
+      const c = await signInWithPopup(auth, provider);
+      /* The listener has already turned a mismatch away — just report it. */
+      if (b.uid && c.user.uid !== b.uid) { freshSignIn.current = false; return 'wrongaccount'; }
+      return 'ok';
+    } catch (e: any) {
+      expectUid.current = '';
+      freshSignIn.current = false;
+      const code = e?.code || '';
+      return code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request' ? 'cancelled' : 'error';
+    }
+  }, [loadData]);
 
   const signInPassword = useCallback(async (email: string, pw: string) => {
     freshSignIn.current = true;
@@ -237,7 +298,7 @@ export function TraqiProvider({ children }: { children: React.ReactNode }) {
         const prof = await loadWorkspace(c.user.uid);
         const uname = prof?.username || prof?.config?.ownerName || c.user.displayName || '';
         const upin = prof?.pin || prof?.config?.pin || '';
-        if (uname && upin) storeBundle(uname, email, pw, upin);
+        if (uname && upin) storeBundle(uname, { email, pw, pin: upin, uid: c.user.uid, provider: 'password' });
       } catch {}
     } catch (e) { freshSignIn.current = false; throw e; }
   }, []);
@@ -255,13 +316,14 @@ export function TraqiProvider({ children }: { children: React.ReactNode }) {
       });
       await updateProfile(c.user, { displayName: username });
       try { await sendEmailVerification(c.user); } catch {}
-      storeBundle(username, email, pw, pin);
+      storeBundle(username, { email, pw, pin, uid: c.user.uid, provider: 'password' });
     } catch (e) { freshSignIn.current = false; pendingReg.current = null; throw e; }
   }, []);
 
   const googleAuth = useCallback(async () => {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
+    expectUid.current = '';        // any account the owner picks here is fine
     freshSignIn.current = true;
     try { await signInWithPopup(auth, provider); }
     catch (e) { freshSignIn.current = false; throw e; }
@@ -278,6 +340,7 @@ export function TraqiProvider({ children }: { children: React.ReactNode }) {
       debts: [], targets: {}, assistants: [], pending: [], auditLog: [], tasks: [], messages: []
     });
     try { await updateProfile(u, { displayName: username }); } catch {}
+    rememberAccount(username, { email: u.email || '', pin, uid: u.uid, provider: 'google' });
     uidRef.current = u.uid;
     const next = { ...emptyWorkspace(), config: cfg };
     setWs(next); wsRef.current = next;
@@ -345,9 +408,11 @@ export function TraqiProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     try { sessionStorage.removeItem('traqi_role'); sessionStorage.removeItem('traqi_roleId'); } catch {}
+    /* Curtain first: clearing the user before the stage would leave the shell
+       rendering a signed-out workspace for a beat. Firebase can catch up. */
+    setStage('signedOut');
     setUser({ role: '', id: '', name: '', perms: [] });
     await signOut(auth).catch(() => {});
-    setStage('signedOut');
   }, []);
 
   const value = useMemo<Ctx>(() => ({
