@@ -12,6 +12,7 @@ import {
 import { useTraqi } from '@/lib/store';
 import { useTheme } from '@/lib/theme';
 import { pendingTaskCount, unreadMsgCount } from '@/lib/compute';
+import type { FeatureKey } from '@/lib/tiers';
 import { Mark, Wordmark } from './Brand';
 import Preloader from './Preloader';
 import { Field, Avatar } from './ui';
@@ -20,6 +21,8 @@ import SettingsModal from './SettingsModal';
 export type NavItem = {
   key: string; href: string; title: string; icon: any;
   group: string; perm?: string; owner?: boolean; badge?: 'tasks' | 'messages' | 'approvals';
+  /* Locked away unless the workspace's tier includes it. */
+  feature?: FeatureKey;
 };
 
 export const NAV: NavItem[] = [
@@ -27,19 +30,19 @@ export const NAV: NavItem[] = [
   { key: 'products', href: '/products', title: 'Products', icon: Package, group: 'Sales', perm: 'view_products' },
   { key: 'sales', href: '/sales', title: 'Sales Log', icon: Receipt, group: 'Sales', perm: 'record_sales' },
   { key: 'returns', href: '/returns', title: 'Returns & Refunds', icon: RotateCcw, group: 'Sales', perm: 'log_returns' },
-  { key: 'financials', href: '/financials', title: 'Financial Report', icon: BarChart3, group: 'Finance & Ops', perm: 'view_financials' },
+  { key: 'financials', href: '/financials', title: 'Financial Report', icon: BarChart3, group: 'Finance & Ops', perm: 'view_financials', feature: 'financials' },
   { key: 'inventory', href: '/inventory', title: 'Inventory', icon: Boxes, group: 'Finance & Ops', perm: 'view_inventory' },
   { key: 'suppliers', href: '/suppliers', title: 'Suppliers', icon: Truck, group: 'Finance & Ops', perm: 'view_suppliers' },
   { key: 'expenses', href: '/expenses', title: 'Expenses', icon: Wallet, group: 'Finance & Ops', perm: 'view_expenses' },
   { key: 'debts', href: '/debts', title: 'Debts & Credit', icon: Hourglass, group: 'Finance & Ops', perm: 'view_debts' },
   { key: 'customers', href: '/customers', title: 'Customers', icon: Users, group: 'Customers', perm: 'view_customers' },
-  { key: 'followups', href: '/followups', title: 'Follow-Up Tracker', icon: BellRing, group: 'Customers', perm: 'view_followups' },
+  { key: 'followups', href: '/followups', title: 'Follow-Up Tracker', icon: BellRing, group: 'Customers', perm: 'view_followups', feature: 'followups' },
   { key: 'templates', href: '/templates', title: 'WhatsApp Templates', icon: MessageSquareText, group: 'Customers', perm: 'use_templates' },
-  { key: 'team', href: '/team', title: 'Team', icon: UserCog, group: 'Management', owner: true },
-  { key: 'tasks', href: '/tasks', title: 'Tasks', icon: ListChecks, group: 'Management', badge: 'tasks' },
-  { key: 'approvals', href: '/approvals', title: 'Approvals', icon: ShieldCheck, group: 'Management', owner: true, badge: 'approvals' },
-  { key: 'messages', href: '/messages', title: 'Messages', icon: MessagesSquare, group: 'Management', badge: 'messages' },
-  { key: 'activity', href: '/activity', title: 'Activity Log', icon: Activity, group: 'Management', owner: true }
+  { key: 'team', href: '/team', title: 'Team', icon: UserCog, group: 'Management', owner: true, feature: 'team' },
+  { key: 'tasks', href: '/tasks', title: 'Tasks', icon: ListChecks, group: 'Management', badge: 'tasks', feature: 'tasks' },
+  { key: 'approvals', href: '/approvals', title: 'Approvals', icon: ShieldCheck, group: 'Management', owner: true, badge: 'approvals', feature: 'team' },
+  { key: 'messages', href: '/messages', title: 'Messages', icon: MessagesSquare, group: 'Management', badge: 'messages', feature: 'team' },
+  { key: 'activity', href: '/activity', title: 'Activity Log', icon: Activity, group: 'Management', owner: true, feature: 'team' }
 ];
 const GROUPS = ['Overview', 'Sales', 'Finance & Ops', 'Customers', 'Management'];
 
@@ -98,10 +101,28 @@ function useIdleLock(enabled: boolean) {
   return { locked, unlock: () => setLocked(false) };
 }
 function LockScreen({ onUnlock }: { onUnlock: () => void }) {
-  const { ws, user, logout } = useTraqi();
+  const { ws, user, logout, linkedAssistant } = useTraqi();
   const [pin, setPin] = useState('');
   const correct = user.role === 'owner' ? ws.config.pin : ws.assistants.find(a => a.id === user.id)?.pin || '';
   const submit = () => { if (pin === correct) onUnlock(); else setPin(''); };
+
+  /* PINs live in the owner's private document, so an assistant working from
+     their own device holds none — they sign in again instead. */
+  if (linkedAssistant) {
+    return (
+      <div className="full-overlay open">
+        <div className="modal narrow" style={{ textAlign: 'center' }}>
+          <span style={{ width: 56, height: 56, borderRadius: '1rem', background: 'var(--indigo-50)', color: 'var(--indigo-600)', display: 'grid', placeItems: 'center', margin: '0 auto 14px' }}><Lock /></span>
+          <h3 className="font-display" style={{ fontSize: '1.25rem', fontWeight: 800, margin: '0 0 6px' }}>Session locked</h3>
+          <p className="hint" style={{ marginBottom: 18 }}>
+            Inactive for 30 minutes. Sign in again to pick up where you left off.
+          </p>
+          <button className="btn btn-primary btn-block" onClick={logout}>Sign in again</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="full-overlay open">
       <div className="modal narrow" style={{ textAlign: 'center' }}>
@@ -119,7 +140,10 @@ function LockScreen({ onUnlock }: { onUnlock: () => void }) {
 
 /* ---------- Shell ---------- */
 export default function AppShell({ children }: { children: React.ReactNode }) {
-  const { ws, user, stage, can, isOwner, currency, setCurrency, toast, switchRole, logout } = useTraqi();
+  const {
+    ws, user, stage, can, isOwner, hasFeature, tier, currency, setCurrency,
+    toast, switchRole, logout, linkedAssistant
+  } = useTraqi();
   const pathname = usePathname();
   const router = useRouter();
   const { dark, toggle } = useTheme();
@@ -135,17 +159,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, [stage, router]);
 
   const current = NAV.find(n => n.href === pathname);
-  const visible = (n: NavItem) => (n.owner ? isOwner : n.perm ? can(n.perm) : true);
+  const visible = (n: NavItem) =>
+    (n.feature ? hasFeature(n.feature) : true) && (n.owner ? isOwner : n.perm ? can(n.perm) : true);
   const badgeCount = (n: NavItem) =>
     n.badge === 'tasks' ? pendingTaskCount(ws, user)
       : n.badge === 'messages' ? unreadMsgCount(ws, user)
         : n.badge === 'approvals' ? ws.pending.filter(p => p.status === 'pending').length : 0;
 
-  /* Guard: redirect if this route is off-limits for the role */
+  /* Guard: redirect if this route is off-limits for the role or the tier —
+     typing the URL is not a way around either. */
   useEffect(() => {
     if (stage !== 'ready' || !current) return;
-    if ((current.owner && !isOwner) || (current.perm && !can(current.perm))) router.replace('/dashboard');
-  }, [stage, current, isOwner, can, router]);
+    if ((current.feature && !hasFeature(current.feature))
+      || (current.owner && !isOwner)
+      || (current.perm && !can(current.perm))) router.replace('/dashboard');
+  }, [stage, current, isOwner, can, hasFeature, router]);
 
   if (stage === 'loading') return <Preloader />;
   if (stage === 'pin') return <RoleGate />;
@@ -203,7 +231,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </span>
               </div>
             </div>
-            <div className="nav-item" onClick={switchRole}><Repeat className="nav-ico" />Switch Role</div>
+            {/* An assistant on their own account holds one seat — there is nothing to
+                switch to, and offering it would imply the owner's PIN opens here. */}
+            {!linkedAssistant && (
+              <div className="nav-item" onClick={switchRole}><Repeat className="nav-ico" />Switch Role</div>
+            )}
             <div className="nav-item" onClick={() => setSettings(true)}><Settings className="nav-ico" />Settings</div>
             <div className="nav-item" onClick={logout}><LogOut className="nav-ico" />Sign Out</div>
           </div>
@@ -216,6 +248,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             )}
             <h1 className="font-display" style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0 }}>{current?.title || 'Traqi'}</h1>
             <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+              {isOwner && (
+                <span className={'badge ' + (tier.key === 'pro' ? 'badge-indigo' : tier.key === 'lite' ? 'badge-amber' : 'badge-slate')}
+                  style={{ cursor: 'pointer' }} onClick={() => setSettings(true)} title="Your plan — tap to change">
+                  {tier.name}
+                </span>
+              )}
               <span className="badge badge-indigo" style={{ cursor: 'pointer' }} onClick={() => setCurrency(currency === 'NGN' ? 'USD' : 'NGN')}>
                 {currency === 'NGN' ? '₦ NGN' : '$ USD'}
               </span>
@@ -269,7 +307,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <div className="mob-group">
             <button className="mob-group-head"><ChevronDown className="caret" /><span>Account</span></button>
             <div className="mob-group-body">
-              <div className="mob-sub" onClick={() => { setDrawer(false); switchRole(); }}><Repeat />Switch</div>
+              {!linkedAssistant && <div className="mob-sub" onClick={() => { setDrawer(false); switchRole(); }}><Repeat />Switch</div>}
               <div className="mob-sub" onClick={() => { setDrawer(false); setSettings(true); }}><Settings />Settings</div>
               <div className="mob-sub" onClick={logout}><LogOut />Sign Out</div>
             </div>

@@ -5,13 +5,25 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Check, Eye, EyeOff, Package, PartyPopper, Users } from 'lucide-react';
-import { useTraqi } from '@/lib/store';
+import { useTraqi, EmailNotFound, WrongSignInMethod } from '@/lib/store';
 import { authError, strength, nextId } from '@/lib/format';
+import { UsernameTaken } from '@/lib/usernames';
 import { Field } from '@/components/ui';
 import { Mark, Wordmark } from '@/components/Brand';
 import Preloader from '@/components/Preloader';
+import TierSelect from '@/components/TierSelect';
+import WelcomeBusiness from '@/components/WelcomeBusiness';
 
 type Panel = 'si' | 'pw' | 'reg' | 'reset';
+
+/* Our own sign-in errors carry their own wording; Firebase's arrive as codes. */
+function authMessage(e: any): string {
+  if (e instanceof EmailNotFound || e instanceof WrongSignInMethod || e instanceof UsernameTaken) return e.message;
+  if (e?.code === 'auth/email-already-in-use') {
+    return 'Email already exists — that address is already registered. Sign in instead, or use Continue with Google if that is how you signed up.';
+  }
+  return authError(e?.code);
+}
 
 /* PINs and passwords are always typed fresh — browsers and password managers
    refill any password box on sight, including the 4-digit PIN. 'new-password'
@@ -46,11 +58,16 @@ export default function AuthPage() {
   const [entering, setEntering] = useState(false);
   const [showPin, setShowPin] = useState(false);
   const [showPw, setShowPw] = useState(false);
+  /* Each registration secret reveals on its own — checking a typo in one
+     shouldn't uncover the other three. */
+  const [showRPw, setShowRPw] = useState(false); const [showRPw2, setShowRPw2] = useState(false);
+  const [showRPin, setShowRPin] = useState(false); const [showRPin2, setShowRPin2] = useState(false);
 
   const [siUser, setSiUser] = useState(''); const [siPin, setSiPin] = useState('');
   const [pwEmail, setPwEmail] = useState(''); const [pwPass, setPwPass] = useState('');
   const [rBiz, setRBiz] = useState(''); const [rUser, setRUser] = useState(''); const [rEmail, setREmail] = useState('');
-  const [rPw, setRPw] = useState(''); const [rPw2, setRPw2] = useState(''); const [rPin, setRPin] = useState('');
+  const [rPw, setRPw] = useState(''); const [rPw2, setRPw2] = useState('');
+  const [rPin, setRPin] = useState(''); const [rPin2, setRPin2] = useState('');
   const [rsEmail, setRsEmail] = useState('');
   const [gBiz, setGBiz] = useState(''); const [gUser, setGUser] = useState(''); const [gPin, setGPin] = useState('');
 
@@ -70,6 +87,11 @@ export default function AuthPage() {
   }, []);
 
   const st = strength(rPw);
+  /* Flag a confirmation the moment it diverges, but stay quiet while it is
+     still a correct prefix — nobody wants "does not match" on every keystroke
+     of a password they are typing correctly. */
+  const pwMismatch = rPw2.length > 0 && !rPw.startsWith(rPw2);
+  const pinMismatch = rPin2.length > 0 && !rPin.startsWith(rPin2);
   const go = (p: Panel) => { setPanel(p); setMsg(null); };
 
   const doPin = async () => {
@@ -91,25 +113,27 @@ export default function AuthPage() {
     if (!pwEmail || !pwPass) return setMsg({ text: 'Fill in both fields.', type: 'err' });
     setLoading(true);
     try { await t.signInPassword(pwEmail, pwPass); setEntering(true); }
-    catch (e: any) { setMsg({ text: authError(e?.code), type: 'err' }); }
+    catch (e: any) { setMsg({ text: authMessage(e), type: 'err' }); }
     setLoading(false);
   };
 
   const doReg = async () => {
-    if (!rBiz || !rUser || !rEmail || !rPw || !rPw2 || !rPin) return setMsg({ text: 'Fill in all fields.', type: 'err' });
+    if (!rBiz || !rUser || !rEmail || !rPw || !rPw2 || !rPin || !rPin2) return setMsg({ text: 'Fill in all fields.', type: 'err' });
     if (rPw !== rPw2) return setMsg({ text: 'Passwords do not match.', type: 'err' });
     if (rPw.length < 6) return setMsg({ text: 'Password must be at least 6 characters.', type: 'err' });
     if (!/^\d{4}$/.test(rPin)) return setMsg({ text: 'PIN must be exactly 4 digits.', type: 'err' });
+    if (rPin !== rPin2) return setMsg({ text: 'PINs do not match.', type: 'err' });
     setLoading(true);
     try { await t.register(rEmail, rPw, rUser, rPin, rBiz); setEntering(true); }
-    catch (e: any) { setMsg({ text: authError(e?.code), type: 'err' }); }
+    catch (e: any) { setMsg({ text: authMessage(e), type: 'err' }); }
     setLoading(false);
   };
 
   const doGoogle = async () => {
     setLoading(true);
     /* Resolves once the Google account is picked and the popup closes. */
-    try { await t.googleAuth(); setEntering(true); } catch (e: any) { setMsg({ text: authError(e?.code), type: 'err' }); }
+    try { await t.googleAuth(); setEntering(true); }
+    catch (e: any) { setMsg({ text: authMessage(e), type: 'err' }); }
     setLoading(false);
   };
 
@@ -117,7 +141,7 @@ export default function AuthPage() {
     if (!rsEmail) return setMsg({ text: 'Enter your email address.', type: 'err' });
     setLoading(true);
     try { await t.resetPassword(rsEmail); setMsg({ text: 'Reset link sent — check your inbox.', type: 'ok' }); }
-    catch (e: any) { setMsg({ text: authError(e?.code), type: 'err' }); }
+    catch (e: any) { setMsg({ text: authMessage(e), type: 'err' }); }
     setLoading(false);
   };
 
@@ -131,7 +155,7 @@ export default function AuthPage() {
         <h3 className="font-display" style={{ fontSize: '1.1rem', margin: '0 0 4px' }}>Complete your registration</h3>
         <p className="hint" style={{ marginBottom: 18 }}>You&apos;re signed in with Google — just a few details to finish setting up.</p>
         <div className="form-grid" style={{ marginBottom: 14 }}>
-          <Field label="Business name"><input value={gBiz} onChange={e => setGBiz(e.target.value)} placeholder="Scentelle Fragrances" /></Field>
+          <Field label="Business name"><input value={gBiz} onChange={e => setGBiz(e.target.value)} placeholder="Bling Fragrances" /></Field>
           <Field label="Username"><input value={gUser} onChange={e => setGUser(e.target.value)} placeholder="amaka" /></Field>
         </div>
         <Field label="4-digit PIN">
@@ -152,6 +176,8 @@ export default function AuthPage() {
       </Centered>
     );
   }
+  if (t.stage === 'plan') return <TierSelect />;
+  if (t.stage === 'welcome') return <WelcomeBusiness />;
   if (t.stage === 'onboarding') return <Onboarding />;
   /* Credentials accepted, workspace still loading — no glimpse of the form. */
   if (entering) return <Preloader />;
@@ -224,7 +250,9 @@ export default function AuthPage() {
             <div className="pnl on">
               <h3 className="font-display" style={{ fontSize: '1.1rem', margin: '0 0 4px' }}>Sign in with password</h3>
               <p className="hint" style={{ marginBottom: 18 }}>PIN forgotten? Use your email and password instead.</p>
-              <Field label="Email address"><input type="email" value={pwEmail} onChange={e => setPwEmail(e.target.value)} placeholder="you@business.com" /></Field>
+              <Field label="Email or username" hint="Assistants can use the username their manager set">
+                <input value={pwEmail} onChange={e => setPwEmail(e.target.value)} placeholder="you@business.com" autoComplete="username" />
+              </Field>
               <div className="field" style={{ marginTop: 14 }}>
                 <label className="label">Password</label>
                 <div className="eye-wrap">
@@ -247,25 +275,48 @@ export default function AuthPage() {
               <button className="btn btn-secondary btn-block" onClick={doGoogle} disabled={loading}><GoogleIcon />Register with Google</button>
               <div className="divider"><span>or register with email</span></div>
               <div className="form-grid" style={{ marginBottom: 14 }}>
-                <Field label="Business name"><input value={rBiz} onChange={e => setRBiz(e.target.value)} placeholder="Scentelle Fragrances" /></Field>
+                <Field label="Business name"><input value={rBiz} onChange={e => setRBiz(e.target.value)} placeholder="Bling Fragrances" /></Field>
                 <Field label="Username"><input value={rUser} onChange={e => setRUser(e.target.value)} placeholder="amaka" /></Field>
               </div>
               <Field label="Email address"><input type="email" value={rEmail} onChange={e => setREmail(e.target.value)} placeholder="you@business.com" /></Field>
               <div className="field" style={{ marginTop: 14 }}>
                 <label className="label">Password</label>
-                <input type="password" value={rPw} onChange={e => setRPw(e.target.value)} placeholder="At least 6 characters" {...NO_AUTOFILL} />
+                <div className="eye-wrap">
+                  <input type={showRPw ? 'text' : 'password'} value={rPw} onChange={e => setRPw(e.target.value)} placeholder="At least 6 characters" {...NO_AUTOFILL} />
+                  <button className="eye-btn" onClick={() => setShowRPw(v => !v)} tabIndex={-1}>{showRPw ? <EyeOff /> : <Eye />}</button>
+                </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
                   <div className="strength-bar"><span style={{ width: st.width, background: st.color }} /></div>
                   <span style={{ fontSize: '.7rem', fontWeight: 700, width: '5rem', textAlign: 'right', color: st.label ? st.color : 'var(--text-3)' }}>{st.label}</span>
                 </div>
               </div>
+              <div className="field" style={{ marginTop: 14 }}>
+                <label className="label">Confirm password</label>
+                <div className="eye-wrap">
+                  <input type={showRPw2 ? 'text' : 'password'} value={rPw2} onChange={e => setRPw2(e.target.value)} placeholder="Repeat password" {...NO_AUTOFILL} />
+                  <button className="eye-btn" onClick={() => setShowRPw2(v => !v)} tabIndex={-1}>{showRPw2 ? <EyeOff /> : <Eye />}</button>
+                </div>
+                {pwMismatch && <span className="field-err">Passwords do not match.</span>}
+              </div>
               <div className="form-grid" style={{ marginTop: 14 }}>
-                <Field label="Confirm password"><input type="password" value={rPw2} onChange={e => setRPw2(e.target.value)} placeholder="Repeat password" {...NO_AUTOFILL} /></Field>
-                <Field label="4-digit PIN"><input type="password" className="pin-input" maxLength={4} inputMode="numeric" placeholder="••••" {...NO_AUTOFILL}
-                  value={rPin} onChange={e => setRPin(e.target.value.replace(/\D/g, '').slice(0, 4))} /></Field>
+                <Field label="4-digit PIN">
+                  <div className="eye-wrap">
+                    <input type={showRPin ? 'text' : 'password'} className="pin-input" maxLength={4} inputMode="numeric" placeholder="••••" {...NO_AUTOFILL}
+                      value={rPin} onChange={e => setRPin(e.target.value.replace(/\D/g, '').slice(0, 4))} />
+                    <button className="eye-btn" onClick={() => setShowRPin(v => !v)} tabIndex={-1}>{showRPin ? <EyeOff /> : <Eye />}</button>
+                  </div>
+                </Field>
+                <Field label="Confirm 4-digit PIN">
+                  <div className="eye-wrap">
+                    <input type={showRPin2 ? 'text' : 'password'} className="pin-input" maxLength={4} inputMode="numeric" placeholder="••••" {...NO_AUTOFILL}
+                      value={rPin2} onChange={e => setRPin2(e.target.value.replace(/\D/g, '').slice(0, 4))} />
+                    <button className="eye-btn" onClick={() => setShowRPin2(v => !v)} tabIndex={-1}>{showRPin2 ? <EyeOff /> : <Eye />}</button>
+                  </div>
+                  {pinMismatch && <span className="field-err">PINs do not match.</span>}
+                </Field>
               </div>
               <p className="hint" style={{ marginTop: 10 }}>Your PIN is a quick sign-in for daily use. Keep your password for account recovery.</p>
-              <button className="btn btn-primary btn-block" style={{ marginTop: 16 }} onClick={doReg} disabled={loading}>
+              <button className="btn btn-primary btn-block" style={{ marginTop: 16 }} onClick={doReg} disabled={loading || pwMismatch || pinMismatch}>
                 {loading ? 'Please wait…' : 'Create Account'}
               </button>
               {msg && <div className={'msg ' + msg.type}>{msg.text}</div>}

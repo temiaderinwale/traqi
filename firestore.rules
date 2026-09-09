@@ -1,0 +1,245 @@
+rules_version = '2';
+
+/* Traqi — Firestore security rules.
+
+   Two audiences share this database:
+     · business owners, who own exactly one workspace document, and
+     · Traqi product admins, who read across the platform from /admin.
+
+   Admin status is a document, not a custom claim, so no Admin SDK or Cloud
+   Function is needed to grant it — but it means every admin check is a
+   rules-level get() of admins/{uid}. Those gets are free of rule evaluation
+   themselves and are cached per request.
+
+   Deploy: Firebase console → Firestore Database → Rules → paste → Publish
+   (or `firebase deploy --only firestore:rules` with this file). */
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /* ---------- helpers ---------- */
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+    function adminDoc() {
+      return get(/databases/$(database)/documents/admins/$(request.auth.uid)).data;
+    }
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        && adminDoc().status == 'approved';
+    }
+    function isSuper() {
+      return isAdmin() && adminDoc().role == 'superadmin';
+    }
+    /* The account that claimed the console first can never be locked out. */
+    function bootstrapUid() {
+      return get(/databases/$(database)/documents/adminMeta/bootstrap).data.ownerUid;
+    }
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+    /* An assistant signed in with their own account. The account document is
+       the link: it names the one workspace they may touch, and it can only be
+       created against a matching invitation (see /assistantAccounts below).
+       A verified email is required — the seat is addressed to that address. */
+    function assistantLink() {
+      return get(/databases/$(database)/documents/assistantAccounts/$(request.auth.uid)).data;
+    }
+    function isLinkedAssistant(ownerUid) {
+      return signedIn()
+        && request.auth.token.email_verified == true
+        && exists(/databases/$(database)/documents/assistantAccounts/$(request.auth.uid))
+        && assistantLink().ownerUid == ownerUid;
+    }
+    function invite(token) {
+      return get(/databases/$(database)/documents/assistantInvites/$(token)).data;
+    }
+
+    /* ---------- business workspaces ---------- */
+    /* An owner reads and writes only their own workspace. Admins may read them
+       all, and may write only the handful of platform fields the console owns —
+       never a customer, sale or any other business record. */
+    match /businesses/{uid} {
+      allow read: if isSelf(uid) || isAdmin() || isLinkedAssistant(uid);
+      allow create, delete: if isSelf(uid);
+      /* An assistant works inside the workspace, so they write the same
+         document the owner does — the app decides what their permissions let
+         them touch. What they may never write is the account itself or the
+         roster: `assistants` carries everyone's permissions, and editing it
+         would let a seat widen its own access. */
+      allow update: if isSelf(uid)
+        || (isLinkedAssistant(uid) && !changedKeys()
+              .hasAny(['plan', 'planUpdatedAt', 'suspended', 'adminNote',
+                       'pin', 'email', 'username', 'assistants']))
+        || (isAdmin() && changedKeys()
+              .hasOnly(['plan', 'planUpdatedAt', 'suspended', 'adminNote']));
+
+      /* PINs — the owner's and every assistant's — live here, out of reach of
+         the workspace document that assistants and admins can read. Nobody
+         but the account holder ever opens it. */
+      match /private/{docId} {
+        allow read, write: if isSelf(uid);
+      }
+    }
+
+    /* ---------- assistant seats ---------- */
+    /* The invitation. Its id is a 128-bit token that only travels in the link,
+       which is what makes it readable without a session: the assistant has to
+       see the seat before they have an account. */
+    match /assistantInvites/{token} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid;
+      allow update, delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+      /* The invited address may mark its own invite accepted, nothing else. */
+      allow update: if signedIn()
+        && request.auth.token.email == resource.data.email
+        && changedKeys().hasOnly(['status', 'acceptedAt', 'acceptedUid'])
+        && request.resource.data.status == 'accepted';
+    }
+
+    /* The claim. Written once, by the invited address, against a live
+       invitation for that exact seat — this is what grants workspace access,
+       so every field of it is pinned to the invite. */
+    match /assistantAccounts/{uid} {
+      allow get: if isSelf(uid) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isSelf(uid)
+        && exists(/databases/$(database)/documents/assistantInvites/$(request.resource.data.token))
+        && invite(request.resource.data.token).email == request.auth.token.email
+        && invite(request.resource.data.token).ownerUid == request.resource.data.ownerUid
+        && invite(request.resource.data.token).assistantId == request.resource.data.assistantId
+        && invite(request.resource.data.token).status == 'pending';
+      /* Only the owner of the workspace can withdraw a seat. */
+      allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+      allow update: if false;
+    }
+
+    /* Username → email, so someone can sign in with a username. It has to be
+       readable without a session, since the lookup happens before sign-in;
+       listing is closed, so usernames cannot be harvested. Claimed once, by
+       the account it belongs to, and never reassigned. */
+    match /usernames/{name} {
+      allow get: if true;
+      allow list: if false;
+      /* Either someone registering their own name, or an owner putting one
+         aside for an assistant they are inviting (uid empty until claimed). */
+      allow create: if signedIn() && (
+        (request.resource.data.uid == request.auth.uid
+          && request.resource.data.email == request.auth.token.email)
+        ||
+        (request.resource.data.uid == ''
+          && request.resource.data.reservedBy == request.auth.uid)
+      );
+      /* Only the address the name was put aside for can claim it, and all it
+         may set is who now holds it. */
+      allow update: if signedIn()
+        && resource.data.uid == ''
+        && resource.data.email == request.auth.token.email
+        && request.resource.data.uid == request.auth.uid
+        && changedKeys().hasOnly(['uid', 'claimedAt']);
+      /* An owner may free a reservation nobody has claimed — that is what a
+         rename does. A claimed name is never released or reassigned. */
+      allow delete: if signedIn()
+        && resource.data.uid == ''
+        && resource.data.reservedBy == request.auth.uid;
+    }
+
+    /* How each address first signed up, so one address keeps one way in
+       whatever the project's account-linking setting happens to be. Readable
+       before sign-in because registration has to ask; only ever written by the
+       account it describes. */
+    match /emails/{address} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email;
+      allow update: if signedIn() && resource.data.uid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    /* ---------- admin roster ---------- */
+    /* Registering is self-service, but what you may register yourself AS is
+       fixed here: the first account (no bootstrap doc yet) is an approved
+       superadmin; everyone after is a pending admin with no access at all
+       until the superadmin flips the status. */
+    match /admins/{adminId} {
+      allow get: if isSelf(adminId) || isAdmin();
+      allow list: if isAdmin();
+
+      allow create: if isSelf(adminId)
+        && request.resource.data.uid == adminId
+        && request.resource.data.email == request.auth.token.email
+        && (
+          (!exists(/databases/$(database)/documents/adminMeta/bootstrap)
+            && request.resource.data.role == 'superadmin'
+            && request.resource.data.status == 'approved')
+          ||
+          (exists(/databases/$(database)/documents/adminMeta/bootstrap)
+            && request.resource.data.role == 'admin'
+            && request.resource.data.status == 'pending')
+        );
+
+      /* Self may only touch harmless profile fields — never role or status. */
+      allow update: if (isSelf(adminId) && changedKeys().hasOnly(['lastLoginAt', 'username']))
+        || (isSuper()
+             && changedKeys().hasOnly(['status', 'role', 'approvedAt', 'approvedBy', 'approvedByName', 'note'])
+             && adminId != bootstrapUid());
+
+      allow delete: if isSuper() && adminId != bootstrapUid();
+    }
+
+    /* One-shot marker: whoever writes it first becomes the owner account.
+       Readable by any signed-in user because registration has to ask whether
+       it exists; never updatable or deletable by anyone. */
+    match /adminMeta/bootstrap {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    /* ---------- console collections ---------- */
+    match /newsletters/{id} {
+      allow read, create, update: if isAdmin();
+      allow delete: if isSuper();
+    }
+
+    match /newsletterUnsubs/{email} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    /* Delivery queue for the Firebase "Trigger Email from Firestore"
+       extension. Admins queue newsletters; a business owner may queue exactly
+       one kind of message — the invitation to their own assistant. Nobody
+       reads the queue back. */
+    match /mail/{id} {
+      allow create: if isAdmin()
+        /* An owner inviting their own assistant… */
+        || (signedIn()
+            && request.resource.data.traqi.kind == 'assistant_invite'
+            && request.resource.data.traqi.ownerUid == request.auth.uid)
+        /* …and that assistant telling the owner they have arrived. */
+        || (signedIn()
+            && request.resource.data.traqi.kind == 'assistant_joined'
+            && isLinkedAssistant(request.resource.data.traqi.ownerUid));
+      allow read, update, delete: if isSuper();
+    }
+
+    /* Append-only: an audit trail nobody can quietly tidy up. */
+    match /adminAudit/{id} {
+      allow read, create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    /* Anything not named above is closed. */
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

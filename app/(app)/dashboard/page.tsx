@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import {
   Banknote, BellRing, Cake, Hourglass, ListChecks, MessageCircle, MessagesSquare,
-  PackageX, Plus, ShieldCheck, TrendingUp
+  PackageX, Plus, ShieldCheck, TrendingUp, Users
 } from 'lucide-react';
 import { useTraqi, useMoney } from '@/lib/store';
 import { getFollowUps, getInventory, getBirthdays, pendingTaskCount, unreadMsgCount } from '@/lib/compute';
@@ -12,7 +12,7 @@ import { Kpi, KpiGrid, SectionHead, BarChart, Card, Avatar, RowCard, Badge } fro
 import { SaleForm, ReceiptModal } from '@/components/SaleForm';
 
 export default function DashboardPage() {
-  const { ws, user, isOwner, can, followUpsDone } = useTraqi();
+  const { ws, user, isOwner, can, hasFeature, tier, customerLimit, customersLeft, followUpsDone } = useTraqi();
   const money = useMoney();
   const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
   const [saleOpen, setSaleOpen] = useState(false);
@@ -32,13 +32,20 @@ export default function DashboardPage() {
   const rev = scoped.reduce((a, s) => a + s.qty * s.price, 0);
   const orders = new Set(scoped.map(s => s.orderId || s.id)).size;
 
-  const fus = getFollowUps(ws, followUpsDone);
+  /* Follow-ups, birthdays, tasks and team traffic are all plan features — on a
+     tier without them the briefing simply doesn't carry those panels. */
+  const showFollowUps = hasFeature('followups');
+  const showTeam = hasFeature('team');
+  const showTasks = hasFeature('tasks');
+
+  const fus = showFollowUps ? getFollowUps(ws, followUpsDone) : [];
   const due = fus.filter(f => f.status !== 'upcoming');
   const lowStock = getInventory(ws).filter(i => i.status !== 'OK');
   const debts = ws.debts.filter(d => d.status !== 'Cleared');
-  const bdays = getBirthdays(ws).filter(b => b.daysAway <= 7);
-  const tasks = pendingTaskCount(ws, user), unread = unreadMsgCount(ws, user);
-  const approvals = ws.pending.filter(p => p.status === 'pending').length;
+  const bdays = showFollowUps ? getBirthdays(ws).filter(b => b.daysAway <= 7) : [];
+  const tasks = showTasks ? pendingTaskCount(ws, user) : 0;
+  const unread = showTeam ? unreadMsgCount(ws, user) : 0;
+  const approvals = showTeam ? ws.pending.filter(p => p.status === 'pending').length : 0;
 
   const week = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(); d.setDate(d.getDate() - (6 - i));
@@ -70,7 +77,12 @@ export default function DashboardPage() {
       <KpiGrid>
         <Kpi icon={Banknote} label={period === 'today' ? "Today's Revenue" : period === 'week' ? 'Revenue · 7 days' : 'Revenue · this month'}
           value={money(rev)} sub={`${orders} order${orders === 1 ? '' : 's'}`} />
-        <Kpi icon={BellRing} tone="amber" label="Follow-ups due" value={due.length} sub={due.length ? 'Contact them today' : 'All caught up'} />
+        {showFollowUps ? (
+          <Kpi icon={BellRing} tone="amber" label="Follow-ups due" value={due.length} sub={due.length ? 'Contact them today' : 'All caught up'} />
+        ) : (
+          <Kpi icon={Users} label="Customers" value={ws.customers.length}
+            sub={customerLimit === Infinity ? 'Unlimited on your plan' : `${customersLeft} of ${customerLimit} left on ${tier.name}`} />
+        )}
         <Kpi icon={PackageX} tone={lowStock.length ? 'red' : 'green'} label="Low stock items" value={lowStock.length} sub={lowStock.length ? 'Restock soon' : 'Stock healthy'} />
         <Kpi icon={Hourglass} tone="amber" label="Outstanding debts" value={money(debts.reduce((a, d) => a + (d.total - d.paid), 0))} sub={`${debts.length} customer${debts.length === 1 ? '' : 's'}`} />
       </KpiGrid>
@@ -105,6 +117,7 @@ export default function DashboardPage() {
         </KpiGrid>
       )}
 
+      {showFollowUps && (
       <div className="grid-3-2" style={{ marginBottom: 18 }}>
         <div>
           <SectionHead title="Today's follow-ups" icon={BellRing}
@@ -144,6 +157,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+      )}
 
       <div className="two-col">
         <div>

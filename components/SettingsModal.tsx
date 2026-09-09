@@ -2,15 +2,19 @@
 /* Traqi — settings */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Settings, Sun, Moon, Download, Upload, Trash2, Pencil } from 'lucide-react';
+import { Settings, Sun, Moon, Download, Upload, Trash2, Pencil, Lock } from 'lucide-react';
 import { useTraqi } from '@/lib/store';
 import { saveWorkspace } from '@/lib/firebase';
 import { COLLECTIONS, DEFAULT_CONFIG, Workspace } from '@/lib/types';
+import { FEATURE_LABEL, TIERS, TierKey, limitLabel } from '@/lib/tiers';
 import { todayStr } from '@/lib/format';
 import { Modal, Field } from './ui';
+import { TierCards } from './TierSelect';
 
 export default function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { ws, isOwner, save, saveConfig, saveTargets, log, showToast, fbUser } = useTraqi();
+  const { ws, isOwner, tier, changePlan, save, saveConfig, saveTargets, log, showToast, fbUser } = useTraqi();
+  const [planOpen, setPlanOpen] = useState(false);
+  const [picked, setPicked] = useState<TierKey>('starter');
   const [editBiz, setEditBiz] = useState(false);
   const [bizName, setBizName] = useState(ws.config.bizName);
   const [pin, setPin] = useState('');
@@ -21,8 +25,26 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
   useEffect(() => {
     if (!open) return;
     setBizName(ws.config.bizName); setEditBiz(false); setPin(''); setPin2('');
+    setPlanOpen(false); setPicked((ws.config.plan || 'starter') as TierKey);
     setDark(document.documentElement.classList.contains('dark'));
-  }, [open, ws.config.bizName]);
+  }, [open, ws.config.bizName, ws.config.plan]);
+
+  /* What a move down would take away — worth spelling out before it happens. */
+  const downgrade = TIERS[picked].features.length < tier.features.length
+    || TIERS[picked].limits.customers < tier.limits.customers;
+  const lostFeatures = tier.features
+    .filter(f => !TIERS[picked].features.includes(f))
+    .map(f => FEATURE_LABEL[f]);
+
+  const applyPlan = () => {
+    const over = ws.customers.length - TIERS[picked].limits.customers;
+    if (over > 0) {
+      showToast(`You have ${ws.customers.length} customers — ${TIERS[picked].name} allows ${limitLabel(TIERS[picked].limits.customers)}`);
+      return;
+    }
+    changePlan(picked);
+    setPlanOpen(false);
+  };
 
   const setTheme = (t: 'light' | 'dark') => {
     document.documentElement.classList.toggle('dark', t === 'dark');
@@ -42,8 +64,9 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
   const changePin = () => {
     if (!/^\d{4}$/.test(pin)) { showToast('PIN must be 4 digits'); return; }
     if (pin !== pin2) { showToast('PINs do not match'); return; }
+    /* saveConfig routes the PIN to the private credentials document — it must
+       never be mirrored into the shared workspace document. */
     saveConfig({ pin });
-    if (fbUser) saveWorkspace(fbUser.uid, { pin }).catch(() => {});
     setPin(''); setPin2('');
     showToast('PIN updated');
   };
@@ -88,7 +111,7 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Settings" icon={Settings}
+    <Modal open={open} onClose={onClose} title="Settings" icon={Settings} xwide
       actions={<button className="btn btn-secondary" onClick={onClose}>Close</button>}>
       <div style={{ display: 'grid', gap: 14 }}>
         {isOwner && (
@@ -114,6 +137,42 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
             <div style={{ fontSize: '.85rem', color: 'var(--text-2)', marginTop: 3 }}>
               Email: <strong style={{ color: 'var(--text)' }}>{ws.config.email || '—'}</strong>
             </div>
+          </div>
+        )}
+
+        {isOwner && (
+          <div className="card card-p" style={{ background: 'var(--surface-2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <div className="label" style={{ margin: 0 }}>Your plan</div>
+              <span className={'badge ' + (tier.key === 'pro' ? 'badge-indigo' : tier.key === 'lite' ? 'badge-amber' : 'badge-slate')}>{tier.name}</span>
+            </div>
+            <p className="hint" style={{ marginBottom: 12 }}>
+              {tier.tagline} · {limitLabel(tier.limits.customers)} customers
+              {ws.customers.length ? ` · ${ws.customers.length} used` : ''}
+            </p>
+            {planOpen ? (
+              <>
+                <TierCards value={picked} onChange={setPicked} />
+                <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+                  <button className="btn btn-primary btn-sm" disabled={picked === ws.config.plan}
+                    onClick={applyPlan}>{downgrade ? 'Switch to ' + TIERS[picked].name : 'Upgrade to ' + TIERS[picked].name}</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => setPlanOpen(false)}>Cancel</button>
+                </div>
+                {downgrade && (
+                  <div className="tier-lock" style={{ marginTop: 12 }}>
+                    <Lock />
+                    <span>
+                      Moving down locks {lostFeatures.join(', ') || 'some features'} and caps customers at{' '}
+                      {limitLabel(TIERS[picked].limits.customers)}. Nothing is deleted — everything comes back if you move up again.
+                    </span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <button className="btn btn-secondary btn-sm" onClick={() => { setPicked((ws.config.plan || 'starter') as TierKey); setPlanOpen(true); }}>
+                Change or upgrade plan
+              </button>
+            )}
           </div>
         )}
 

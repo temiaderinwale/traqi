@@ -29,7 +29,7 @@ function parseCSVLine(line: string): string[] {
 export default function ImportModal({ open, onClose, kind }: {
   open: boolean; onClose: () => void; kind: 'products' | 'customers';
 }) {
-  const { ws, save, log, showToast } = useTraqi();
+  const { ws, save, log, showToast, tier, customerLimit } = useTraqi();
   const [rows, setRows] = useState<Record<string, string>[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -64,9 +64,13 @@ export default function ImportModal({ open, onClose, kind }: {
     if (kind === 'customers') {
       const phones = ws.customers.map(c => (c.phone || '').replace(/\s/g, ''));
       const added = [...ws.customers];
+      /* A bulk file must respect the same ceiling a typed record does — import
+         up to the cap, then stop and say how many were left. */
+      let capped = 0;
       rows.forEach(d => {
         const name = d.name || d.fullname || '';
         if (!name) return;
+        if (added.length >= customerLimit) { capped++; return; }
         const phone = (d.phone || '').replace(/\s/g, '');
         if (phone && phones.includes(phone)) { skipped++; return; }
         added.push({
@@ -78,6 +82,13 @@ export default function ImportModal({ open, onClose, kind }: {
         count++;
       });
       save('customers', added);
+      if (capped) {
+        log('Bulk import', `${count} customers · ${capped} over the ${tier.name} limit`);
+        showToast(`Imported ${count} — ${capped} left out, ${tier.name} holds ${customerLimit} customers`);
+        setRows([]);
+        onClose();
+        return;
+      }
     } else {
       const names = ws.products.map(p => p.name.toLowerCase());
       const added = [...ws.products];

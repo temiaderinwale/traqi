@@ -12,21 +12,26 @@ import LandingNav, { useAppEntry } from './LandingNav';
 import Showcase from './Showcase';
 import Reveal from './Reveal';
 import Faq, { FaqItem } from './Faq';
+import { EduEdgeLogo, LinkedInMark, SmeBuddyLogo } from './PartnerLogos';
+import HeroCarousel from './HeroCarousel';
 
 const FEATURES = [
   { icon: Receipt, title: 'Sales & Receipts', desc: 'Record multi-product sales in seconds and send professional receipts by WhatsApp, print or image.' },
-  { icon: Package, title: 'Inventory Tracking', desc: 'Live stock levels with reorder alerts, so you restock before you run out — never after.' },
-  { icon: BellRing, title: 'Customer Follow-ups', desc: 'Traqi predicts when each customer will finish their product and reminds you to reach out — 3 days early.' },
-  { icon: Users, title: 'Team & Permissions', desc: 'Add assistants with granular permissions, PIN sign-in, approvals and a full activity log.' },
+  { icon: Package, title: 'Inventory Tracking', desc: 'Live stock levels with reorder alerts, so you restock before you run out.' },
+  { icon: BellRing, title: 'Smart Follow-ups', desc: 'Traqi predicts when each customer will finish their product and reminds you to reach out.' },
+  { icon: Users, title: 'Team & Permissions', desc: 'Add assistants, manage your team and track all activities.' },
   { icon: Hourglass, title: 'Debts & Credit', desc: 'Track part-payments and outstanding balances, with overdue flags and gentle reminder templates.' },
-  { icon: BarChart3, title: 'Financial Reports', desc: "Revenue, expenses, margins and monthly targets in one clear report you'll actually read." }
+  { icon: BarChart3, title: 'Financial Reports', desc: 'Revenue, expenses, margins and monthly targets in one clear report.' }
 ];
 
-const LOGOS: { name: string; icon?: LucideIcon }[] = [
+/* A partner is either a wordmark we set in type, or its own drawn logo. */
+const LOGOS: { name: string; icon?: React.ComponentType<{ className?: string }>; logo?: React.ComponentType<{ className?: string }> }[] = [
   { name: 'Ascendia' },
+  { name: 'EduEdge Institute', logo: EduEdgeLogo },
   { name: 'TheAbiodunBabs Consulting' },
-  { name: 'LinkedInLocal Abeokuta', icon: Linkedin },
-  { name: 'EduEdge Institute' }
+  { name: 'LinkedInLocal Abeokuta', icon: LinkedInMark },
+  { name: 'SME Buddy', logo: SmeBuddyLogo },
+  { name: 'Securing The Future Ltd' }
 ];
 
 const STATS = [
@@ -37,17 +42,22 @@ const STATS = [
 ];
 
 const STARTER = ['Sales log & receipts', 'Up to 50 customers', 'Basic inventory tracking', 'Standard support'];
+const LITE = [
+  'Everything in Starter', 'Up to 100 customers', 'Smart follow-ups & birthday alerts',
+  'Financial reports & monthly targets', 'Priority support'
+];
 const PRO = [
   'Everything in Starter, unlimited', 'Smart follow-ups & birthday alerts',
-  'Team roles, approvals & activity log', 'Financial reports & monthly targets', 'Priority support'
+  'Financial reports & monthly targets', 'Team roles, approvals & activity log',
+  'Task management', 'Priority support'
 ];
 
 const FAQS: FaqItem[] = [
-  { q: 'What kind of businesses is Traqi for?', a: 'Traqi is built for product-based small businesses — fragrance and beauty sellers, boutiques, food brands, salons and more. If you sell, restock and follow up with customers, Traqi fits.' },
-  { q: 'Does it work on my phone?', a: 'Yes — Traqi is fully responsive with a mobile bottom navigation, so you can record sales and check follow-ups from any phone, tablet or desktop.' },
+  { q: 'What kind of businesses is Traqi for?', a: 'Traqi is built for product-based businesses such as Fashion, Wears & Accessories, Fabrics, Beauty & Personal Care, Fragrances, Electronics & Electricals, Wholesale & Distribution, Gadgets & Devices, Kitchen Utensils & Household Appliances, and many others. If you sell, restock and follow up with customers, Traqi fits.' },
+  { q: 'Does it work on my phone?', a: 'Yes, Traqi works on all devices. So, you can record sales and check follow-ups from multi devices.' },
   { q: 'Can my assistants use it without seeing my finances?', a: 'Absolutely. Assistants sign in with their own PIN and only see what you allow — you control permissions for sales, inventory, expenses and financial reports, with owner approval for sensitive actions.' },
   { q: 'How do smart follow-ups work?', a: "Each product has an expected usage duration. When a customer buys, Traqi calculates when they'll run out and reminds you 3 days before — with a one-tap WhatsApp message ready to send." },
-  { q: 'Can I move my existing records into Traqi?', a: "Yes. Import products and customers from a CSV in minutes, and export a full backup of your data any time — it's yours." }
+  { q: 'Can I move my existing records into Traqi?', a: "Yes, you can import your existing products and customer database into Traqi." }
 ];
 
 const SPARK = 'rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm';
@@ -64,7 +74,7 @@ export default function Landing() {
         {/* ---------- Hero ---------- */}
         <section className="mx-auto max-w-6xl px-4 pt-14 pb-16 md:pt-20 md:pb-24 grid md:grid-cols-2 gap-12 md:items-center">
           <div className="seq">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600 dark:text-indigo-400">Business management, reimagined</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600 dark:text-indigo-400">Business management, made easy</p>
             <h1 className="font-display font-extrabold text-4xl sm:text-5xl lg:text-6xl leading-[1.05] mt-4 text-balance">
               Run your whole business from <span className="text-indigo-600 dark:text-indigo-400">one place.</span>
             </h1>
@@ -97,70 +107,8 @@ export default function Landing() {
             </div>
           </div>
 
-          {/* Framed dashboard mockup */}
-          <div className="rv">
-            <div className="relative">
-              <div className="absolute -inset-6 bg-indigo-100/60 dark:bg-indigo-500/10 rounded-[2.5rem] rotate-2" aria-hidden="true" />
-              <div className="relative rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl overflow-hidden">
-                <div className="flex items-center gap-1.5 px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-                  <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-green-400" />
-                  <span className="ml-3 text-[11px] text-slate-400 truncate">app.traqi.co/dashboard</span>
-                </div>
-                <div className="p-5 bg-slate-50 dark:bg-slate-950">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">Good morning, Amaka 👋</p>
-                      <p className="font-display font-bold text-sm mt-0.5">Daily Briefing</p>
-                    </div>
-                    <span className="text-[10px] font-semibold bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400 rounded-full px-2.5 py-1">₦ NGN</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 mt-4">
-                    <div className={SPARK + ' p-3.5'}>
-                      <div className="flex items-center gap-2">
-                        <span className="h-7 w-7 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 grid place-items-center"><Banknote className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" /></span>
-                        <span className="text-[11px] text-slate-500 dark:text-slate-400">Today&apos;s Revenue</span>
-                      </div>
-                      <p className="tnum font-display font-extrabold text-lg mt-2">₦128,500</p>
-                      <p className="text-[10px] text-green-600 font-semibold mt-0.5">▲ 12% from last week</p>
-                    </div>
-                    <div className={SPARK + ' p-3.5'}>
-                      <div className="flex items-center gap-2">
-                        <span className="h-7 w-7 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 grid place-items-center"><ShoppingBag className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" /></span>
-                        <span className="text-[11px] text-slate-500 dark:text-slate-400">Orders</span>
-                      </div>
-                      <p className="tnum font-display font-extrabold text-lg mt-2">24</p>
-                      <p className="text-[10px] text-green-600 font-semibold mt-0.5">▲ 8% from last week</p>
-                    </div>
-                  </div>
-                  <div className={SPARK + ' p-4 mt-3'}>
-                    <div className="flex items-center justify-between">
-                      <p className="text-[11px] font-semibold">Sales this week</p>
-                      <span className="text-[10px] text-slate-400 tnum">₦742k total</span>
-                    </div>
-                    <div className="chart mt-3" style={{ height: 64 }} aria-hidden="true">
-                      {['38%', '55%', '42%', '70%', '58%', '92%', '47%'].map((h, i) => (
-                        <div key={i} className="col"><div className={'bar' + (i === 5 ? '' : ' muted')} style={{ height: h }} /></div>
-                      ))}
-                    </div>
-                    <div className="mt-3 flex items-center gap-2">
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400">Follow-ups done</span>
-                      <div className="flex-1 h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><span className="block h-full w-[78%] rounded-full bg-indigo-500" /></div>
-                      <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 tnum">78%</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="absolute -right-3 -bottom-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-lg px-4 py-3 flex items-center gap-3 floaty">
-                <span className="h-8 w-8 rounded-full bg-green-50 dark:bg-green-500/10 grid place-items-center"><Check className="h-4 w-4 text-green-600" /></span>
-                <div>
-                  <p className="text-xs font-semibold">Payment received</p>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 tnum">₦18,500 · Rose Elixir ×2</p>
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Traqi in use — auto-advancing hero */}
+          <HeroCarousel />
         </section>
 
         {/* ---------- Logo marquee ---------- */}
@@ -169,10 +117,16 @@ export default function Landing() {
           <div className="marquee" aria-hidden="true">
             <div className="marquee-track items-center gap-16 pr-16 text-slate-400 dark:text-slate-600">
               {[0, 1].map(pass => LOGOS.map(l => {
-                const Icon = l.icon;
+                const Icon = l.icon, Logo = l.logo;
+                /* Drawn marks keep their own colours; the rest take the strip's
+                   muted tone. */
+                if (Logo) return (
+                  <Logo key={pass + l.name}
+                    className={(l.name === 'SME Buddy' ? 'h-16' : 'h-12') + ' w-auto shrink-0'} />
+                );
                 return (
                   <span key={pass + l.name} className="font-display font-bold text-xl whitespace-nowrap flex items-center gap-2">
-                    {Icon && <Icon className="h-5 w-5" />}{l.name}
+                    {Icon && <Icon className="h-6 w-6" />}{l.name}
                   </span>
                 );
               }))}
@@ -184,7 +138,7 @@ export default function Landing() {
         <section id="features" className="mx-auto max-w-6xl px-4 py-20 md:py-28">
           <div className="max-w-2xl mx-auto text-center rv">
             <h2 className="font-display font-extrabold text-3xl md:text-4xl text-balance">Everything your business needs</h2>
-            <p className="mt-3 text-slate-500 dark:text-slate-400">One workspace for the daily work that actually grows a business — built from years of running real shops.</p>
+            <p className="mt-3 text-slate-500 dark:text-slate-400">One workspace for your daily operations — built from years of running real businesses.</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-12">
             {FEATURES.map((f, i) => {
@@ -229,12 +183,11 @@ export default function Landing() {
               <h2 className="font-display font-extrabold text-3xl md:text-4xl">Simple, transparent pricing</h2>
               <p className="mt-3 text-slate-500 dark:text-slate-400">Start free, upgrade when your business does.</p>
             </div>
-            <div className="mt-12 flex flex-col lg:flex-row items-stretch justify-center gap-6 lg:gap-0 max-w-4xl mx-auto">
-              <div className="rv flex-1 rounded-3xl lg:rounded-r-none bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8">
+            <div className="mt-12 grid gap-6 lg:grid-cols-3 items-stretch max-w-5xl mx-auto">
+              <div className="rv flex flex-col rounded-3xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8">
                 <h3 className="font-display font-extrabold text-2xl">Starter</h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">For solo sellers getting organised</p>
-                <p className="mt-5"><span className="tnum font-display font-extrabold text-4xl">₦0</span><span className="text-sm text-slate-500 dark:text-slate-400"> / month</span></p>
-                <ul className="mt-6 space-y-3 text-sm">
+                <ul className="mt-6 flex-1 space-y-3 text-sm">
                   {STARTER.map(f => (
                     <li key={f} className="flex items-center gap-2.5"><CheckCircle2 className="h-5 w-5 shrink-0 text-indigo-600 dark:text-indigo-400" />{f}</li>
                   ))}
@@ -242,23 +195,28 @@ export default function Landing() {
                 <Link href={href} className="mt-8 block text-center rounded-xl bg-white border border-slate-200 text-slate-900 font-semibold py-3 hover:bg-slate-100 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-700 transition-colors">Start free</Link>
               </div>
 
-              <div className="rv rv-d1 flex-1 relative rounded-3xl bg-gradient-to-tr from-indigo-700 via-indigo-600 to-indigo-500 text-white p-8 shadow-xl lg:scale-[1.04]">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="font-display font-extrabold text-2xl flex items-center gap-2">
-                      Pro <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-500 text-amber-950 rounded-full px-2 py-0.5">Pro</span>
-                    </h3>
-                    <p className="text-sm text-indigo-200 mt-1">For teams that sell every day</p>
-                  </div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-500/90 text-amber-950 rounded-full px-3 py-1 whitespace-nowrap">Best value</span>
-                </div>
-                <p className="mt-5"><span className="tnum font-display font-extrabold text-5xl">₦49,500</span><span className="text-sm text-indigo-200"> / month</span></p>
-                <ul className="mt-6 space-y-3 text-sm text-indigo-100">
+              <div className="rv rv-d1 flex flex-col rounded-3xl bg-gradient-to-tr from-amber-600 via-amber-500 to-orange-400 text-amber-950 p-8 shadow-xl">
+                <h3 className="font-display font-extrabold text-2xl">Lite</h3>
+                <p className="text-sm text-amber-900/80 mt-1">For growing sellers with regulars</p>
+                <ul className="mt-6 flex-1 space-y-3 text-sm text-amber-950/90">
+                  {LITE.map(f => (
+                    <li key={f} className="flex items-center gap-2.5"><CheckCircle2 className="h-5 w-5 shrink-0 text-amber-950" />{f}</li>
+                  ))}
+                </ul>
+                <Link href={href} className="mt-8 block text-center rounded-xl bg-white text-amber-700 font-bold py-3 hover:bg-amber-50 transition-colors">Start free</Link>
+              </div>
+
+              <div className="rv rv-d2 flex flex-col relative rounded-3xl bg-gradient-to-tr from-indigo-700 via-indigo-600 to-indigo-500 text-white p-8 shadow-xl">
+                {/* Badge sits out of flow so the tagline keeps the full card width. */}
+                <span className="absolute right-6 top-6 text-[10px] font-bold uppercase tracking-wider bg-amber-500/90 text-amber-950 rounded-full px-3 py-1 whitespace-nowrap">Best value</span>
+                <h3 className="font-display font-extrabold text-2xl">Pro</h3>
+                <p className="text-sm text-indigo-200 mt-1 whitespace-nowrap">For teams that sell every day</p>
+                <ul className="mt-6 flex-1 space-y-3 text-sm text-indigo-100">
                   {PRO.map(f => (
                     <li key={f} className="flex items-center gap-2.5"><CheckCircle2 className="h-5 w-5 shrink-0 text-amber-400" />{f}</li>
                   ))}
                 </ul>
-                <Link href={href} className="mt-8 block text-center rounded-xl bg-white text-indigo-700 font-bold py-3 hover:bg-indigo-50 transition-colors">Get Traqi Pro</Link>
+                <Link href={href} className="mt-8 block text-center rounded-xl bg-white text-indigo-700 font-bold py-3 hover:bg-indigo-50 transition-colors">Start free</Link>
               </div>
             </div>
           </div>

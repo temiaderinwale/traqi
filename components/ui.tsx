@@ -84,14 +84,14 @@ export function TableWrap({ head, children, foot, minWidth = 640 }: {
   );
 }
 
-export function Modal({ open, onClose, title, icon: Icon, wide, narrow, children, actions }: {
+export function Modal({ open, onClose, title, icon: Icon, wide, xwide, narrow, children, actions }: {
   open: boolean; onClose: () => void; title: string; icon?: LucideIcon;
-  wide?: boolean; narrow?: boolean; children: React.ReactNode; actions?: React.ReactNode;
+  wide?: boolean; xwide?: boolean; narrow?: boolean; children: React.ReactNode; actions?: React.ReactNode;
 }) {
   if (!open) return null;
   return (
     <div className="modal-overlay open" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className={'modal' + (wide ? ' wide' : '') + (narrow ? ' narrow' : '')}>
+      <div className={'modal' + (xwide ? ' xwide' : wide ? ' wide' : '') + (narrow ? ' narrow' : '')}>
         <div className="modal-title">{Icon && <Icon />}{title}</div>
         {children}
         {actions && <div className="modal-actions">{actions}</div>}

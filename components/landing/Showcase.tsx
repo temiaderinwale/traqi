@@ -6,7 +6,7 @@ import { Cake, LayoutDashboard, MessageCircleHeart, TrendingUp } from 'lucide-re
 
 const TABS = [
   { id: 't1', icon: LayoutDashboard, title: 'Intuitive Dashboard', desc: 'Your day at a glance — revenue, orders, follow-ups and stock, before your first cup of tea.' },
-  { id: 't2', icon: MessageCircleHeart, title: 'Smart Follow-ups', desc: 'Reorder reminders calculated from each product usage days — sent right when customers run low.' },
+  { id: 't2', icon: MessageCircleHeart, title: 'Customer Relationship Management', desc: 'Reorder reminders calculated from each product usage days — sent right when customers run low.' },
   { id: 't3', icon: TrendingUp, title: 'Financial Clarity', desc: 'Profit, margins and monthly targets, without the spreadsheet gymnastics.' }
 ];
 

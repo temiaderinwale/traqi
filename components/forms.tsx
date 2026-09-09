@@ -3,15 +3,25 @@
 
 import React, { useEffect, useState } from 'react';
 import {
-  Package, UserPlus, Truck, Wallet, Hourglass, RotateCcw, Boxes, Target, ListChecks, Send, MessageSquare
+  Package, UserPlus, Truck, Wallet, Hourglass, Eye, EyeOff, Lock, RotateCcw, Boxes, Target, ListChecks, Send, MessageSquare
 } from 'lucide-react';
 import { useTraqi } from '@/lib/store';
 import { nextId, todayStr } from '@/lib/format';
 import { PERMISSIONS, APPROVAL_REQUIRED } from '@/lib/compute';
+import { UsernameTaken, releaseUsername, reserveUsername, usernameKey } from '@/lib/usernames';
 import { Modal, Field } from './ui';
+import CategorySelect from './CategorySelect';
 import type { Product, Customer, Supplier, Expense, Debt, Assistant } from '@/lib/types';
 
 type FormProps<T> = { open: boolean; onClose: () => void; editing?: T | null };
+
+/* PINs are typed fresh — password managers refill any password box on sight. */
+const NO_AUTOFILL = {
+  autoComplete: 'new-password',
+  'data-lpignore': 'true',
+  'data-1p-ignore': 'true',
+  'data-form-type': 'other'
+} as const;
 
 /* ---------------- Product ---------------- */
 export function ProductForm({ open, onClose, editing }: FormProps<Product>) {
@@ -47,10 +57,9 @@ export function ProductForm({ open, onClose, editing }: FormProps<Product>) {
       actions={<><button className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={submit}>Save Product</button></>}>
       <div className="form-grid">
         <Field label="Product name *" full><input value={f.name} onChange={set('name')} placeholder="e.g. Rose Elixir" /></Field>
-        <Field label="Category *"><select value={f.cat} onChange={set('cat')}>
-          <option value="">Select…</option>
-          {['Eau de Parfum', 'Eau de Toilette', 'Perfume Oil', 'Oud', 'Body Mist', 'Attar / Ittar', 'Roll-On', 'Deodorant', 'Other'].map(c => <option key={c}>{c}</option>)}
-        </select></Field>
+        <Field label="Category *">
+          <CategorySelect value={f.cat} onChange={cat => setF((p: any) => ({ ...p, cat }))} />
+        </Field>
         <Field label="Size"><input value={f.size} onChange={set('size')} placeholder="50ml" /></Field>
         <Field label="Cost price (₦) *"><input type="number" value={f.cost} onChange={set('cost')} placeholder="3500" /></Field>
         <Field label="Selling price (₦) *"><input type="number" value={f.price} onChange={set('price')} placeholder="8500" /></Field>
@@ -68,7 +77,10 @@ export function ProductForm({ open, onClose, editing }: FormProps<Product>) {
 
 /* ---------------- Customer ---------------- */
 export function CustomerForm({ open, onClose, editing }: FormProps<Customer>) {
-  const { ws, save, log, showToast } = useTraqi();
+  const { ws, save, log, showToast, tier, customerLimit, atCustomerLimit } = useTraqi();
+  /* Editing an existing record is always allowed — the cap is on how many a
+     plan may hold, not on keeping the ones already there accurate. */
+  const blocked = !editing && atCustomerLimit;
   const blank = { name: '', phone: '', wa: '', insta: '', city: '', type: 'Regular', bday: '', source: '', refby: '', scent: '', notes: '' };
   const [f, setF] = useState<any>(blank);
   const [step, setStep] = useState(1);
@@ -76,6 +88,7 @@ export function CustomerForm({ open, onClose, editing }: FormProps<Customer>) {
   const set = (k: string) => (e: any) => setF({ ...f, [k]: e.target.value });
 
   const submit = () => {
+    if (blocked) { showToast(`${tier.name} holds up to ${customerLimit} customers — upgrade in Settings`); return; }
     if (!f.name || !f.phone) { showToast('Name and phone are required'); return; }
     const rec: Customer = {
       id: editing?.id || nextId('CUS', ws.customers), name: f.name.trim(), phone: f.phone.trim(),
@@ -92,10 +105,19 @@ export function CustomerForm({ open, onClose, editing }: FormProps<Customer>) {
     <Modal open={open} onClose={onClose} title={editing ? 'Edit Customer' : 'Add Customer'} icon={UserPlus} wide
       actions={step === 1
         ? <><button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-            <button className="btn btn-primary" onClick={() => { if (!f.name || !f.phone) { showToast('Name and phone are required'); return; } setStep(2); }}>Next →</button></>
+            <button className="btn btn-primary" disabled={blocked} onClick={() => { if (!f.name || !f.phone) { showToast('Name and phone are required'); return; } setStep(2); }}>Next →</button></>
         : <><button className="btn btn-secondary" onClick={() => setStep(1)}>← Back</button>
-            <button className="btn btn-primary" onClick={submit}>Save Customer</button></>}>
+            <button className="btn btn-primary" disabled={blocked} onClick={submit}>Save Customer</button></>}>
       <div className="step-dots"><div className={'step-dot' + (step === 1 ? ' active' : '')} /><div className={'step-dot' + (step === 2 ? ' active' : '')} /></div>
+      {blocked && (
+        <div className="tier-lock" style={{ marginBottom: 14 }}>
+          <Lock />
+          <span>
+            <strong>{tier.name} holds up to {customerLimit} customers</strong> and you have {ws.customers.length}.
+            Change your plan in Settings to add more — nothing you have recorded is affected.
+          </span>
+        </div>
+      )}
       {step === 1 ? (
         <div className="form-grid">
           <Field label="Full name *" full><input value={f.name} onChange={set('name')} placeholder="e.g. Amaka Obi" /></Field>
@@ -330,21 +352,65 @@ export function TargetForm({ open, onClose }: { open: boolean; onClose: () => vo
 
 /* ---------------- Assistant ---------------- */
 export function AssistantForm({ open, onClose, editing }: FormProps<Assistant>) {
-  const { ws, save, log, showToast } = useTraqi();
-  const [f, setF] = useState<any>({ name: '', phone: '', pin: '', pin2: '' });
+  const { ws, save, log, showToast, hasFeature, tier, fbUser } = useTraqi();
+  const [saving, setSaving] = useState(false);
+  const blankA = { name: '', phone: '', email: '', pin: '', pin2: '' };
+  const [f, setF] = useState<any>(blankA);
+  const [showPin, setShowPin] = useState(false);
+  const [showPin2, setShowPin2] = useState(false);
   const [perms, setPerms] = useState<string[]>(PERMISSIONS.low.map(p => p.key));
   useEffect(() => {
-    setF(editing ? { name: editing.name, phone: editing.phone || '', pin: editing.pin, pin2: editing.pin } : { name: '', phone: '', pin: '', pin2: '' });
+    setF(editing
+      ? { name: editing.name, phone: editing.phone || '', email: editing.email || '', pin: editing.pin, pin2: editing.pin }
+      : blankA);
     setPerms(editing ? editing.perms || [] : PERMISSIONS.low.map(p => p.key));
+    setShowPin(false); setShowPin2(false);
   }, [editing, open]);
+  const pinMismatch = f.pin2.length > 0 && !f.pin.startsWith(f.pin2);
   const toggle = (k: string) => setPerms(p => (p.includes(k) ? p.filter(x => x !== k) : [...p, k]));
-  const submit = () => {
+  const submit = async () => {
+    /* The Team page is already gated by tier; this is the same rule at the
+       point of write, so no route can slip an assistant past it. */
+    if (!hasFeature('team')) { showToast(`Team members are on Pro — ${tier.name} doesn't include them`); return; }
     if (!f.name) { showToast('Enter the assistant name'); return; }
+    /* Phone and email are what the invitation travels on, so both are required. */
+    if (!f.phone.trim()) { showToast('A phone number is required — the invite goes out on WhatsApp'); return; }
+    const email = f.email.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(email)) { showToast('Enter a valid email address for the assistant'); return; }
+    if (ws.assistants.some(a => a.id !== editing?.id && (a.email || '').toLowerCase() === email)) {
+      showToast('Another team member already uses that email'); return;
+    }
     if (!/^\d{4}$/.test(f.pin)) { showToast('PIN must be 4 digits'); return; }
     if (f.pin !== f.pin2) { showToast('PINs do not match'); return; }
+
+    /* Usernames are unique across Traqi, so the name is put aside now rather
+       than at sign-up — otherwise two businesses could hand out the same one
+       and whoever joined second would lose it. */
+    const id = editing?.id || 'AST-' + Date.now();
+    const username = f.name.trim();
+    if (!editing?.accountUid && usernameKey(username) !== usernameKey(editing?.name || '')) {
+      setSaving(true);
+      try {
+        await reserveUsername(username, email, fbUser?.uid || '', id);
+        if (editing?.name) await releaseUsername(editing.name);
+      } catch (err: any) {
+        setSaving(false);
+        showToast(err instanceof UsernameTaken ? err.message : 'Could not check that username — try again');
+        return;
+      }
+      setSaving(false);
+    }
+
     const rec: Assistant = {
-      id: editing?.id || 'AST-' + Date.now(), name: f.name.trim(), pin: f.pin, phone: f.phone.trim(),
-      perms, active: editing ? editing.active !== false : true, created: editing?.created || new Date().toISOString()
+      id, name: username, pin: f.pin, phone: f.phone.trim(),
+      email, perms, active: editing ? editing.active !== false : true,
+      created: editing?.created || new Date().toISOString(),
+      /* Carried over so an existing invite link keeps working after an edit.
+         Only ever spread when set — an undefined field would be sent to
+         Firestore and take the whole save down with it. */
+      ...(editing?.inviteToken ? { inviteToken: editing.inviteToken } : {}),
+      ...(editing?.accountUid ? { accountUid: editing.accountUid } : {}),
+      ...(editing?.onboardedAt ? { onboardedAt: editing.onboardedAt } : {})
     };
     save('assistants', editing ? ws.assistants.map(a => (a.id === rec.id ? rec : a)) : [...ws.assistants, rec]);
     log(editing ? 'Updated assistant' : 'Registered assistant', `${rec.name} (${perms.length} permissions)`);
@@ -358,14 +424,49 @@ export function AssistantForm({ open, onClose, editing }: FormProps<Assistant>) 
   ];
   return (
     <Modal open={open} onClose={onClose} title={editing ? 'Edit ' + editing.name : 'Register Assistant'} icon={UserPlus} wide
-      actions={<><button className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={submit}>Save Assistant</button></>}>
+      actions={<><button className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={submit} disabled={saving}>{saving ? 'Checking…' : 'Save Assistant'}</button></>}>
       <div className="form-grid" style={{ marginBottom: 18 }}>
-        <Field label="Assistant name *"><input value={f.name} onChange={e => setF({ ...f, name: e.target.value })} placeholder="e.g. Blessing" /></Field>
-        <Field label="Phone"><input value={f.phone} onChange={e => setF({ ...f, phone: e.target.value })} placeholder="0801…" /></Field>
-        <Field label="PIN (4 digits) *"><input type="password" className="pin-input" maxLength={4} inputMode="numeric"
-          value={f.pin} onChange={e => setF({ ...f, pin: e.target.value.replace(/\D/g, '').slice(0, 4) })} placeholder="••••" /></Field>
-        <Field label="Confirm PIN *"><input type="password" className="pin-input" maxLength={4} inputMode="numeric"
-          value={f.pin2} onChange={e => setF({ ...f, pin2: e.target.value.replace(/\D/g, '').slice(0, 4) })} placeholder="••••" /></Field>
+        <Field label="Assistant username *"
+          hint={editing?.accountUid
+            ? 'Fixed — they already sign in with this username'
+            : "What they'll be known by — and can sign in with. Must be unique across Traqi."}>
+          <input value={f.name} onChange={e => setF({ ...f, name: e.target.value })}
+            placeholder="e.g. Blessing" disabled={!!editing?.accountUid} />
+        </Field>
+        <Field label="Phone *" hint="Used to send the invite on WhatsApp">
+          <input value={f.phone} onChange={e => setF({ ...f, phone: e.target.value })} placeholder="0801…" />
+        </Field>
+        <Field label="Email *" full hint="The invite is addressed here, and only this address can claim the seat">
+          <input type="email" value={f.email} onChange={e => setF({ ...f, email: e.target.value })}
+            placeholder="blessing@example.com" disabled={!!editing?.accountUid} />
+        </Field>
+      </div>
+
+      <div className="muted-box" style={{ marginBottom: 18 }}>
+        <p className="label" style={{ margin: '0 0 4px' }}>Private PIN</p>
+        <p className="hint" style={{ margin: '0 0 12px', lineHeight: 1.55 }}>
+          Hand the phone over and let {f.name.trim() || 'your assistant'} type their own 4-digit PIN — it&apos;s
+          how they sign in on your device, so it should be theirs alone.
+        </p>
+        <div className="form-grid">
+          <Field label="PIN (4 digits) *">
+            <div className="eye-wrap">
+              <input type={showPin ? 'text' : 'password'} className="pin-input" maxLength={4} inputMode="numeric"
+                value={f.pin} onChange={e => setF({ ...f, pin: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+                placeholder="••••" {...NO_AUTOFILL} />
+              <button className="eye-btn" onClick={() => setShowPin(v => !v)} tabIndex={-1}>{showPin ? <EyeOff /> : <Eye />}</button>
+            </div>
+          </Field>
+          <Field label="Confirm PIN *">
+            <div className="eye-wrap">
+              <input type={showPin2 ? 'text' : 'password'} className="pin-input" maxLength={4} inputMode="numeric"
+                value={f.pin2} onChange={e => setF({ ...f, pin2: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+                placeholder="••••" {...NO_AUTOFILL} />
+              <button className="eye-btn" onClick={() => setShowPin2(v => !v)} tabIndex={-1}>{showPin2 ? <EyeOff /> : <Eye />}</button>
+            </div>
+            {pinMismatch && <span className="field-err">PINs do not match.</span>}
+          </Field>
+        </div>
       </div>
       <p className="label" style={{ marginBottom: 10 }}>Permissions</p>
       {groups.map(([key, label, items]) => (

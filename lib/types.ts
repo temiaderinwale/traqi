@@ -1,4 +1,6 @@
 /* Traqi — domain types */
+import type { TierKey } from './tiers';
+import type { IndustryKey } from './industries';
 
 export type Product = {
   id: string; name: string; cat: string; size: string;
@@ -40,6 +42,13 @@ export type Debt = {
 export type Assistant = {
   id: string; name: string; pin: string; phone: string;
   perms: string[]; active: boolean; created: string;
+  /* An assistant can also hold their own sign-in. `email` is what the invite
+     is addressed to and the only address that may claim it; `accountUid` is
+     set once they have finished signing up on their own device. */
+  email: string;
+  inviteToken?: string;
+  accountUid?: string;
+  onboardedAt?: string;
 };
 
 export type PendingItem = {
@@ -71,6 +80,16 @@ export type Message = {
 export type Config = {
   bizName: string; ownerName: string; email: string; pin: string;
   onboarded: boolean; soundOn: boolean; receiptCounter: number;
+  /* Account tier. Empty until the workspace picks one — that is what puts the
+     tier selector between registration and onboarding. Mirrored to the
+     top-level `plan` field on the business document so the admin console can
+     read (and change) it without opening the config. */
+  plan: TierKey | '';
+  planChosenAt: string;
+  /* What kind of business this is — it decides the product categories the
+     workspace works with. Chosen once, after the plan, before onboarding. */
+  industry: IndustryKey | '';
+  extraCategories: string[];
 };
 
 export type Workspace = {
@@ -94,7 +113,8 @@ export const COLLECTIONS: CollectionKey[] = [
 
 export const DEFAULT_CONFIG: Config = {
   bizName: '', ownerName: 'Owner', email: '', pin: '1234',
-  onboarded: false, soundOn: false, receiptCounter: 0
+  onboarded: false, soundOn: false, receiptCounter: 0, plan: '', planChosenAt: '',
+  industry: '', extraCategories: []
 };
 
 export const emptyWorkspace = (): Workspace => ({
