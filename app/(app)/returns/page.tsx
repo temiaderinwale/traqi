@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Banknote, Package, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { useTraqi, useMoney } from '@/lib/store';
+import { useFabAction } from '@/lib/fab';
 import { fmtDate } from '@/lib/format';
 import { PageHead, TableWrap, EmptyState, Badge, Kpi, KpiGrid } from '@/components/ui';
 import { ReturnForm } from '@/components/forms';
@@ -10,6 +11,7 @@ export default function ReturnsPage() {
   const { ws, isOwner, can, save, showToast } = useTraqi();
   const money = useMoney();
   const [form, setForm] = useState(false);
+  useFabAction(() => { setForm(true); });
   const totRef = ws.returns.reduce((a, r) => a + (r.amt || 0), 0);
   const totQty = ws.returns.reduce((a, r) => a + (r.qty || 0), 0);
   const remove = (id: string) => {

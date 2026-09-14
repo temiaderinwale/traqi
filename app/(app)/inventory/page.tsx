@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { AlertTriangle, Boxes, MessageCircle, Package, Plus } from 'lucide-react';
 import { useTraqi, useMoney } from '@/lib/store';
+import { useFabAction } from '@/lib/fab';
 import { getInventory } from '@/lib/compute';
 import { waLink } from '@/lib/format';
 import { PageHead, TableWrap, EmptyState, Badge, Kpi, KpiGrid, HBar } from '@/components/ui';
@@ -11,6 +12,7 @@ export default function InventoryPage() {
   const { ws, can } = useTraqi();
   const money = useMoney();
   const [form, setForm] = useState(false);
+  useFabAction(() => { setForm(true); });
   const inv = getInventory(ws);
   const value = inv.reduce((a, i) => a + i.value, 0);
   const low = inv.filter(i => i.status !== 'OK').length;

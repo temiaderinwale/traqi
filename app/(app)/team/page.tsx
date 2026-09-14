@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Check, Copy, Link2, Mail, MessageCircle, Pencil, ShieldCheck, UserPlus, Users } from 'lucide-react';
 import { useTraqi } from '@/lib/store';
+import { useFabAction } from '@/lib/fab';
 import { fmtDate } from '@/lib/format';
 import { ALL_PERMS } from '@/lib/compute';
 import { PageHead, EmptyState, Card, Badge, Avatar } from '@/components/ui';
@@ -15,6 +16,7 @@ export default function TeamPage() {
   const [editing, setEditing] = useState<Assistant | null>(null);
   const [busy, setBusy] = useState('');
   const [copied, setCopied] = useState('');
+  useFabAction(() => { setEditing(null); setForm(true); });
 
   const toggle = (a: Assistant) => {
     const next = a.active === false;

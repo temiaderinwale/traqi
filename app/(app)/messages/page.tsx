@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Archive, MessagesSquare, Plus, Trash2 } from 'lucide-react';
 import { useTraqi } from '@/lib/store';
+import { useFabAction } from '@/lib/fab';
 import { isMsgFromMe, isMsgVisible, msgUserId } from '@/lib/compute';
 import { fmtDate } from '@/lib/format';
 import { PageHead, EmptyState, Badge, Avatar } from '@/components/ui';
@@ -12,6 +13,7 @@ export default function MessagesPage() {
   const { ws, user, save, log, showToast } = useTraqi();
   const [form, setForm] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
+  useFabAction(() => { setForm(true); });
   const me = msgUserId(user);
 
   const live = ws.messages.filter(m => !m.deletedAt && isMsgVisible(m, user)).sort((a, b) => +new Date(b.ts) - +new Date(a.ts));

@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { CheckCircle2, Hourglass, Pencil, Plus, Trash2, Users } from 'lucide-react';
 import { useTraqi, useMoney } from '@/lib/store';
+import { useFabAction } from '@/lib/fab';
 import { fmtDate, diffDays } from '@/lib/format';
 import { PageHead, TableWrap, EmptyState, Badge, Kpi, KpiGrid } from '@/components/ui';
 import { DebtForm } from '@/components/forms';
@@ -11,6 +12,7 @@ export default function DebtsPage() {
   const { ws, isOwner, save, log, showToast } = useTraqi();
   const money = useMoney();
   const [form, setForm] = useState(false); const [editing, setEditing] = useState<Debt | null>(null);
+  useFabAction(() => { setEditing(null); setForm(true); });
   const owed = ws.debts.reduce((a, d) => a + (d.total - d.paid), 0);
   const active = ws.debts.filter(d => d.status !== 'Cleared').length;
   const cleared = ws.debts.filter(d => d.status === 'Cleared').length;

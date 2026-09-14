@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { CalendarDays, List, Pencil, Plus, Tag, Trash2, Wallet } from 'lucide-react';
 import { useTraqi, useMoney } from '@/lib/store';
+import { useFabAction } from '@/lib/fab';
 import { fmtDate } from '@/lib/format';
 import { PageHead, TableWrap, EmptyState, Badge, Kpi, KpiGrid } from '@/components/ui';
 import { ExpenseForm } from '@/components/forms';
@@ -11,6 +12,7 @@ export default function ExpensesPage() {
   const { ws, isOwner, can, save, showToast } = useTraqi();
   const money = useMoney();
   const [form, setForm] = useState(false); const [editing, setEditing] = useState<Expense | null>(null);
+  useFabAction(() => { setEditing(null); setForm(true); });
   const total = ws.expenses.reduce((a, e) => a + e.amt, 0);
   const now = new Date();
   const thisM = ws.expenses.filter(e => { const d = new Date(e.date); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); }).reduce((a, e) => a + e.amt, 0);

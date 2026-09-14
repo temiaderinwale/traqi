@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Eye, MessageCircle, Pencil, Plus, Trash2, Upload, Users, Phone, X } from 'lucide-react';
 import { useTraqi, useMoney } from '@/lib/store';
+import { useFabAction } from '@/lib/fab';
 import { lastSeenDays } from '@/lib/compute';
 import { waLink, fmtDate } from '@/lib/format';
 import { PageHead, TableWrap, EmptyState, Badge, Avatar } from '@/components/ui';
@@ -16,6 +17,7 @@ export default function CustomersPage() {
   const [form, setForm] = useState(false); const [editing, setEditing] = useState<Customer | null>(null);
   const [panel, setPanel] = useState<Customer | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  useFabAction(() => { setEditing(null); setForm(true); });
 
   const list = ws.customers.filter(c =>
     (!q || c.name.toLowerCase().includes(q.toLowerCase()) || (c.phone || '').includes(q)) &&

@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { AlertCircle, Check, CheckCheck, CheckCircle2, ListChecks, MessageSquare, Plus, Trash2 } from 'lucide-react';
 import { useTraqi } from '@/lib/store';
+import { useFabAction } from '@/lib/fab';
 import { fmtDate, diffDays } from '@/lib/format';
 import { PageHead, EmptyState, Card, Badge, Kpi, KpiGrid } from '@/components/ui';
 import { TaskForm, FeedbackForm } from '@/components/forms';
@@ -10,6 +11,7 @@ export default function TasksPage() {
   const { ws, user, isOwner, save, log, showToast } = useTraqi();
   const [form, setForm] = useState(false);
   const [feedbackId, setFeedbackId] = useState<string | null>(null);
+  useFabAction(() => { setForm(true); });
 
   const mine = (isOwner ? ws.tasks : ws.tasks.filter(t => t.assignedTo?.includes(user.id)))
     .slice().sort((a, b) => {

@@ -10,7 +10,7 @@ import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { adminDb } from './adminFirebase';
 import {
   BusinessSummary, MonthPoint, PlatformMetrics, Plan, PLANS, PLAN_PRICE,
-  NewsletterAudience, C
+  NewsletterAudience, PilotSignupRecord, PilotStatus, PILOT_STATUSES, C
 } from './adminTypes';
 
 const num = (v: any) => (typeof v === 'number' && isFinite(v) ? v : Number(v) || 0);
@@ -195,6 +195,50 @@ export async function setBusinessSuspended(id: string, suspended: boolean) {
 }
 export async function setBusinessNote(id: string, adminNote: string) {
   await updateDoc(doc(adminDb, C.businesses, id), { adminNote });
+}
+
+/* ---------- Pilot applications ----------
+   The /pilot page writes these and cannot read them back; the console is the
+   only place they are ever seen. Small enough to read whole, and ordering by
+   `createdAt` in the query would silently drop any record still holding an
+   unresolved server timestamp — so sort here instead. */
+export function readPilotSignup(id: string, d: Record<string, any>): PilotSignupRecord {
+  const status = str(d.status).toLowerCase();
+  return {
+    id,
+    firstName: str(d.firstName),
+    surname: str(d.surname),
+    business: str(d.business),
+    category: str(d.category),
+    categoryGroup: str(d.categoryGroup) || str(d.category),
+    location: str(d.location),
+    email: str(d.email),
+    whatsapp: str(d.whatsapp),
+    about: str(d.about),
+    status: (PILOT_STATUSES as string[]).includes(status) ? (status as PilotStatus) : 'new',
+    adminNote: str(d.adminNote),
+    reviewedAt: str(d.reviewedAt),
+    reviewedBy: str(d.reviewedBy),
+    /* serverTimestamp() resolves a beat after the write, so a record read in
+       that window has no date yet — show it as the newest, not as 1970. */
+    createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : str(d.createdAt)
+  };
+}
+
+export async function fetchPilotSignups(): Promise<PilotSignupRecord[]> {
+  const snap = await getDocs(collection(adminDb, C.pilot));
+  return snap.docs
+    .map(d => readPilotSignup(d.id, d.data() as Record<string, any>))
+    .sort((a, b) => (b.createdAt || '9999').localeCompare(a.createdAt || '9999'));
+}
+
+export async function setPilotStatus(id: string, status: PilotStatus, by: string) {
+  await updateDoc(doc(adminDb, C.pilot, id), {
+    status, reviewedAt: new Date().toISOString(), reviewedBy: by
+  });
+}
+export async function setPilotNote(id: string, adminNote: string) {
+  await updateDoc(doc(adminDb, C.pilot, id), { adminNote });
 }
 
 /* ---------- Audience selection ---------- */

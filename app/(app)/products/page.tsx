@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Package, Pencil, Plus, Trash2, Upload } from 'lucide-react';
 import { useTraqi, useMoney } from '@/lib/store';
+import { useFabAction } from '@/lib/fab';
 import { getInventory, productPerformance } from '@/lib/compute';
 import { marginClass } from '@/lib/format';
 import { PageHead, TableWrap, EmptyState, Badge } from '@/components/ui';
@@ -16,6 +17,7 @@ export default function ProductsPage() {
   const [form, setForm] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  useFabAction(() => { setEditing(null); setForm(true); });
 
   const inv = getInventory(ws).filter(p =>
     !q || p.name.toLowerCase().includes(q.toLowerCase()) || (p.cat || '').toLowerCase().includes(q.toLowerCase()));

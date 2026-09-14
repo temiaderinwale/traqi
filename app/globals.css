@@ -558,3 +558,88 @@ body.auth-mode .app-wrap,body.auth-mode .mob-nav,body.auth-mode .fab,body.auth-m
 .cat-opt svg{width:14px;height:14px;color:var(--text-3);flex-shrink:0}
 .cat-opt.on{background:var(--indigo-50)}
 .cat-opt.on .ss-name{color:var(--indigo-600)}
+
+/* ============================================================
+   Pilot page (/pilot)
+   ============================================================ */
+
+/* ---------- The pilot page's WhatsApp call to action ----------
+   Its label is a long sentence that has to stay on one line, so the type has
+   to be measured against something. The viewport is the wrong thing: from lg
+   the card is half the screen, so a vw-based size is largest exactly where
+   the card is narrowest (at 1024px, the moment the two columns appear) and
+   runs the words into the button's edges. Measuring against the button's own
+   width instead keeps a gutter either side at every size. The affine calc is
+   what holds that gutter at roughly 6% rather than letting it collapse as the
+   button narrows; the vw line above it is the fallback where cqi is missing. */
+.wa-cta{container-type:inline-size}
+.wa-cta-label{font-size:clamp(.7rem,3.05vw,1rem)}
+.wa-cta-label{font-size:clamp(.7rem,calc(4.5cqi - 1.9px),1rem)}
+
+/* ---------- Admin: a value that copies itself ----------
+   Reads as the plain text in the cell; the dashed rule is the only hint that
+   it does anything, and it only sharpens on hover. */
+.copy-text{font:inherit;color:inherit;background:none;border:none;padding:0;cursor:pointer;text-align:left;
+  border-bottom:1px dashed var(--border);transition:color .15s,border-color .15s}
+.copy-text:hover{color:var(--indigo-600);border-bottom-color:var(--indigo-600)}
+
+/* ============================================================
+   Pilot page (/pilot) — continued
+   ============================================================ */
+
+/* Phones get the whole page a step smaller, so more of it fits on screen at
+   once and nothing has to be squashed to manage it. Tailwind states every
+   size and gap in rem, so one root font-size scales type and spacing in step.
+   Set from the page itself, and only while it is mounted. */
+@media(max-width:767px){
+  html.pilot-zoom{font-size:14px}
+}
+
+/* The carousel picture drifts while it sits, so a slide that stays on screen
+   for nearly five seconds never looks like a frozen frame. */
+.kenburns{animation:kenburns 9s ease-out both;transform-origin:center}
+@keyframes kenburns{from{transform:scale(1.0)}to{transform:scale(1.11)}}
+
+/* ---------- How one slide hands over to the next ----------
+   Eight arrivals, picked at random in PilotCarousel so the same move never
+   runs twice in a row. Each animates only the incoming slide; the outgoing
+   one waits underneath, which is what gives the wipe and the iris something
+   to reveal over. */
+.pilot-in{animation-duration:.9s;animation-timing-function:var(--ease);animation-fill-mode:both;will-change:transform,opacity,clip-path}
+.pilot-in-fade{animation-name:pilotFade}
+.pilot-in-slide{animation-name:pilotSlide}
+.pilot-in-rise{animation-name:pilotRise}
+.pilot-in-zoom{animation-name:pilotZoom}
+.pilot-in-wipe{animation-name:pilotWipe}
+.pilot-in-iris{animation-name:pilotIris}
+.pilot-in-blur{animation-name:pilotBlur}
+.pilot-in-swing{animation-name:pilotSwing;transform-origin:right center}
+
+@keyframes pilotFade{from{opacity:0}to{opacity:1}}
+@keyframes pilotSlide{from{transform:translateX(100%)}to{transform:none}}
+@keyframes pilotRise{from{transform:translateY(100%)}to{transform:none}}
+@keyframes pilotZoom{from{opacity:0;transform:scale(1.28)}to{opacity:1;transform:none}}
+@keyframes pilotWipe{from{clip-path:inset(0 0 0 100%)}to{clip-path:inset(0 0 0 0)}}
+/* 75% clears the corners of a square from its centre (they sit at ~71%). */
+@keyframes pilotIris{from{clip-path:circle(0% at 50% 50%)}to{clip-path:circle(75% at 50% 50%)}}
+@keyframes pilotBlur{from{opacity:0;filter:blur(20px);transform:scale(1.1)}to{opacity:1;filter:blur(0);transform:none}}
+@keyframes pilotSwing{
+  from{opacity:.25;transform:perspective(900px) rotateY(38deg) scale(.92)}
+  to{opacity:1;transform:perspective(900px) rotateY(0deg) scale(1)}
+}
+
+/* Anything that appears in place on the form — the "Other" category box, and
+   the whole card once an application is in. */
+.pilot-pop{animation:pilotPop .45s var(--ease) both}
+@keyframes pilotPop{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+
+/* The WhatsApp invitation, which is the one thing left to do on the page:
+   a halo breathing behind it and the button itself nudging forward. */
+.pilot-halo{animation:pilotHalo 2.6s ease-in-out infinite}
+@keyframes pilotHalo{0%,100%{opacity:.35;transform:scale(.97)}50%{opacity:.7;transform:scale(1.02)}}
+.pilot-nudge{animation:pilotNudge 2.6s ease-in-out infinite}
+@keyframes pilotNudge{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+
+@media (prefers-reduced-motion: reduce){
+  .kenburns,.pilot-pop,.pilot-halo,.pilot-nudge{animation:none}
+}

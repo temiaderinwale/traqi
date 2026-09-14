@@ -16,13 +16,16 @@ const LABEL: Record<string, string> = {
   business_note: 'Note saved', newsletter_draft: 'Newsletter drafted',
   newsletter_schedule: 'Newsletter scheduled', newsletter_send: 'Newsletter queued',
   newsletter_delete: 'Newsletter deleted', unsubscribe_add: 'Unsubscribe added',
-  unsubscribe_remove: 'Unsubscribe removed'
+  unsubscribe_remove: 'Unsubscribe removed',
+  pilot_new: 'Pilot applicant reopened', pilot_contacted: 'Pilot applicant contacted',
+  pilot_approved: 'Pilot applicant approved', pilot_declined: 'Pilot applicant declined',
+  pilot_note: 'Pilot note saved'
 };
 
 const TONE = (a: string) =>
-  a.includes('suspend') || a.includes('reject') || a.includes('delete') ? 'red'
+  a.includes('suspend') || a.includes('reject') || a.includes('decline') || a.includes('delete') ? 'red'
     : a.includes('approve') || a.includes('restore') ? 'green'
-      : a.includes('newsletter') ? 'indigo' : 'slate';
+      : a.includes('newsletter') ? 'indigo' : a.startsWith('pilot') ? 'blue' : 'slate';
 
 export default function AuditLog() {
   const { audit, refreshAudit } = useAdmin();

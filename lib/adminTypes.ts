@@ -134,6 +134,35 @@ export type Newsletter = {
 
 export type Unsubscribe = { email: string; ts: string; by: string };
 
+/* ---------- Pilot programme ----------
+   Applications from /pilot, the unlinked page we hand out to prospective
+   early users. An applicant writes the record once and never sees it
+   again; from then on it belongs to the console, which moves it along a
+   short pipeline: new → contacted → approved (or declined). */
+export type PilotStatus = 'new' | 'contacted' | 'approved' | 'declined';
+export const PILOT_STATUSES: PilotStatus[] = ['new', 'contacted', 'approved', 'declined'];
+export const PILOT_LABEL: Record<PilotStatus, string> = {
+  new: 'New', contacted: 'Contacted', approved: 'Approved', declined: 'Declined'
+};
+
+export type PilotSignupRecord = {
+  id: string;
+  firstName: string;
+  surname: string;
+  business: string;
+  category: string;              // what they are, in their own words if "Other"
+  categoryGroup: string;         // the onboarding class they picked it from
+  location: string;
+  email: string;
+  whatsapp: string;
+  about: string;
+  status: PilotStatus;
+  adminNote: string;
+  reviewedAt: string;
+  reviewedBy: string;
+  createdAt: string;             // ISO, from the server timestamp
+};
+
 /* ---------- Admin audit ---------- */
 export type AdminAudit = {
   id: string;
@@ -152,5 +181,6 @@ export const C = {
   newsletters: 'newsletters',
   unsubs: 'newsletterUnsubs',
   audit: 'adminAudit',
-  mail: 'mail'                   // Firebase "Trigger Email" extension queue
+  mail: 'mail',                  // Firebase "Trigger Email" extension queue
+  pilot: 'pilotSignups'          // applications from the unlinked /pilot page
 } as const;

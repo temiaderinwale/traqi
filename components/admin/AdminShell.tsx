@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import {
   Activity, BarChart3, Building2, ChevronDown, CreditCard, LayoutDashboard, LogOut, Mail,
-  Menu, Moon, RefreshCw, ShieldCheck, Sun, Server, Users
+  Menu, Moon, RefreshCw, Rocket, ShieldCheck, Sun, Server, Users
 } from 'lucide-react';
 import { useAdmin } from '@/lib/adminStore';
 import { useTheme } from '@/lib/theme';
@@ -21,13 +21,14 @@ import Transactions from './modules/Transactions';
 import Subscriptions from './modules/Subscriptions';
 import People from './modules/People';
 import Newsletters from './modules/Newsletters';
+import PilotSignups from './modules/PilotSignups';
 import AdminTeam from './modules/AdminTeam';
 import AuditLog from './modules/AuditLog';
 import System from './modules/System';
 
 type ModuleKey =
   | 'overview' | 'businesses' | 'transactions' | 'subscriptions'
-  | 'people' | 'newsletters' | 'team' | 'audit' | 'system';
+  | 'people' | 'pilot' | 'newsletters' | 'team' | 'audit' | 'system';
 
 const MODULES: {
   key: ModuleKey; title: string; sub: string; icon: any; group: string;
@@ -38,6 +39,7 @@ const MODULES: {
   { key: 'transactions', title: 'Transactions & Volume', sub: 'What moves through Traqi, month by month', icon: BarChart3, group: 'Platform', Body: Transactions },
   { key: 'subscriptions', title: 'Plans & Subscriptions', sub: 'Plan mix, trials and recurring revenue', icon: CreditCard, group: 'Revenue', Body: Subscriptions },
   { key: 'people', title: 'Users & Teams', sub: 'Owners, assistants and the setup funnel', icon: Users, group: 'Revenue', Body: People },
+  { key: 'pilot', title: 'Pilot Applications', sub: 'Early users who applied through the pilot page', icon: Rocket, group: 'Engagement', Body: PilotSignups },
   { key: 'newsletters', title: 'Newsletters', sub: 'Compose, segment and send to business owners', icon: Mail, group: 'Engagement', Body: Newsletters },
   { key: 'team', title: 'Admin Team', sub: 'Access requests and the admin roster', icon: ShieldCheck, group: 'Console', badge: 'pending', Body: AdminTeam },
   { key: 'audit', title: 'Audit Log', sub: 'Every privileged action taken in this console', icon: Activity, group: 'Console', Body: AuditLog },

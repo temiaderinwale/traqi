@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Pencil, Plus, Receipt, Trash2 } from 'lucide-react';
 import { useTraqi, useMoney } from '@/lib/store';
+import { useFabAction } from '@/lib/fab';
 import { getOrders } from '@/lib/compute';
 import { fmtDate, marginClass } from '@/lib/format';
 import { PageHead, TableWrap, EmptyState, Badge } from '@/components/ui';
@@ -15,6 +16,7 @@ export default function SalesPage() {
   const [q, setQ] = useState(''); const [status, setStatus] = useState(''); const [channel, setChannel] = useState(''); const [date, setDate] = useState('');
   const [form, setForm] = useState(false); const [editId, setEditId] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<string | null>(null);
+  useFabAction(() => { setEditId(null); setForm(true); });
 
   useEffect(() => { if (params.get('new')) { setEditId(null); setForm(true); } }, [params]);
 

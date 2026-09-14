@@ -58,6 +58,15 @@ service cloud.firestore {
     function invite(token) {
       return get(/databases/$(database)/documents/assistantInvites/$(token)).data;
     }
+    /* Bounds for text a stranger may write (see /pilotSignups). Kept in step
+       with LIMITS in lib/pilot.ts, so anything the form accepts is something
+       these rules accept too. */
+    function shortText(v, min) {
+      return v is string && v.size() >= min && v.size() <= 120;
+    }
+    function longText(v, min) {
+      return v is string && v.size() >= min && v.size() <= 1200;
+    }
 
     /* ---------- business workspaces ---------- */
     /* An owner reads and writes only their own workspace. Admins may read them
@@ -201,6 +210,39 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid;
       allow update, delete: if false;
+    }
+
+    /* ---------- pilot programme ---------- */
+    /* Applications from /pilot. The page has no sign-in — that is the whole
+       point of it — so creating is open, and every field is pinned here
+       instead: a fixed shape, bounded lengths, and a status nobody outside
+       the console can set. Nothing may be read back, so an open collection
+       still gives away nothing; the console reads and triages them. */
+    match /pilotSignups/{id} {
+      allow get, list: if isAdmin();
+      allow create: if request.resource.data.keys().hasOnly([
+              'firstName', 'surname', 'business', 'category', 'categoryGroup',
+              'location', 'email', 'whatsapp', 'about',
+              'status', 'source', 'createdAt'])
+        && request.resource.data.keys().hasAll([
+              'firstName', 'surname', 'business', 'category', 'location',
+              'email', 'whatsapp', 'about', 'status', 'source'])
+        && shortText(request.resource.data.firstName, 1)
+        && shortText(request.resource.data.surname, 1)
+        && shortText(request.resource.data.business, 1)
+        && shortText(request.resource.data.category, 1)
+        && shortText(request.resource.data.categoryGroup, 1)
+        && shortText(request.resource.data.location, 1)
+        && shortText(request.resource.data.email, 5)
+        && shortText(request.resource.data.whatsapp, 7)
+        && longText(request.resource.data.about, 1)
+        && request.resource.data.status == 'new'
+        && request.resource.data.source == 'pilot';
+      /* Triage only: an admin moves an applicant through the pipeline and
+         leaves a note. What the applicant wrote is never edited. */
+      allow update: if isAdmin() && changedKeys()
+        .hasOnly(['status', 'adminNote', 'reviewedAt', 'reviewedBy']);
+      allow delete: if isSuper();
     }
 
     /* ---------- console collections ---------- */

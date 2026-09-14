@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { MessageCircle, Pencil, Plus, Trash2, Truck } from 'lucide-react';
 import { useTraqi } from '@/lib/store';
+import { useFabAction } from '@/lib/fab';
 import { waLink } from '@/lib/format';
 import { PageHead, TableWrap, EmptyState } from '@/components/ui';
 import { SupplierForm } from '@/components/forms';
@@ -10,6 +11,7 @@ import type { Supplier } from '@/lib/types';
 export default function SuppliersPage() {
   const { ws, isOwner, save, showToast } = useTraqi();
   const [form, setForm] = useState(false); const [editing, setEditing] = useState<Supplier | null>(null);
+  useFabAction(() => { setEditing(null); setForm(true); });
   const remove = (id: string, name: string) => {
     const before = ws.suppliers;
     save('suppliers', ws.suppliers.filter(s => s.id !== id));

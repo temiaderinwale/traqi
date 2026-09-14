@@ -12,6 +12,7 @@ import {
 import { useTraqi } from '@/lib/store';
 import { useTheme } from '@/lib/theme';
 import { pendingTaskCount, unreadMsgCount } from '@/lib/compute';
+import { fireFab } from '@/lib/fab';
 import type { FeatureKey } from '@/lib/tiers';
 import { Mark, Wordmark } from './Brand';
 import Preloader from './Preloader';
@@ -23,25 +24,28 @@ export type NavItem = {
   group: string; perm?: string; owner?: boolean; badge?: 'tasks' | 'messages' | 'approvals';
   /* Locked away unless the workspace's tier includes it. */
   feature?: FeatureKey;
+  /* What the mobile "+" does on this page (the page handles it via useFabAction).
+     Pages without one — or whose add the user may not use — fall back to a new sale. */
+  fab?: { label: string; perm?: string; owner?: boolean };
 };
 
 export const NAV: NavItem[] = [
   { key: 'home', href: '/dashboard', title: 'Daily Briefing', icon: LayoutDashboard, group: 'Overview' },
-  { key: 'products', href: '/products', title: 'Products', icon: Package, group: 'Sales', perm: 'view_products' },
-  { key: 'sales', href: '/sales', title: 'Sales Log', icon: Receipt, group: 'Sales', perm: 'record_sales' },
-  { key: 'returns', href: '/returns', title: 'Returns & Refunds', icon: RotateCcw, group: 'Sales', perm: 'log_returns' },
+  { key: 'products', href: '/products', title: 'Products', icon: Package, group: 'Sales', perm: 'view_products', fab: { label: 'Add product', perm: 'add_products' } },
+  { key: 'sales', href: '/sales', title: 'Sales Log', icon: Receipt, group: 'Sales', perm: 'record_sales', fab: { label: 'Record sale', perm: 'record_sales' } },
+  { key: 'returns', href: '/returns', title: 'Returns & Refunds', icon: RotateCcw, group: 'Sales', perm: 'log_returns', fab: { label: 'Log return', perm: 'log_returns' } },
   { key: 'financials', href: '/financials', title: 'Financial Report', icon: BarChart3, group: 'Finance & Ops', perm: 'view_financials', feature: 'financials' },
-  { key: 'inventory', href: '/inventory', title: 'Inventory', icon: Boxes, group: 'Finance & Ops', perm: 'view_inventory' },
-  { key: 'suppliers', href: '/suppliers', title: 'Suppliers', icon: Truck, group: 'Finance & Ops', perm: 'view_suppliers' },
-  { key: 'expenses', href: '/expenses', title: 'Expenses', icon: Wallet, group: 'Finance & Ops', perm: 'view_expenses' },
-  { key: 'debts', href: '/debts', title: 'Debts & Credit', icon: Hourglass, group: 'Finance & Ops', perm: 'view_debts' },
-  { key: 'customers', href: '/customers', title: 'Customers', icon: Users, group: 'Customers', perm: 'view_customers' },
+  { key: 'inventory', href: '/inventory', title: 'Inventory', icon: Boxes, group: 'Finance & Ops', perm: 'view_inventory', fab: { label: 'Restock', perm: 'restock' } },
+  { key: 'suppliers', href: '/suppliers', title: 'Suppliers', icon: Truck, group: 'Finance & Ops', perm: 'view_suppliers', fab: { label: 'Add supplier' } },
+  { key: 'expenses', href: '/expenses', title: 'Expenses', icon: Wallet, group: 'Finance & Ops', perm: 'view_expenses', fab: { label: 'Add expense', perm: 'add_expenses' } },
+  { key: 'debts', href: '/debts', title: 'Debts & Credit', icon: Hourglass, group: 'Finance & Ops', perm: 'view_debts', fab: { label: 'Add debt' } },
+  { key: 'customers', href: '/customers', title: 'Customers', icon: Users, group: 'Customers', perm: 'view_customers', fab: { label: 'Add customer', perm: 'add_customers' } },
   { key: 'followups', href: '/followups', title: 'Follow-Up Tracker', icon: BellRing, group: 'Customers', perm: 'view_followups', feature: 'followups' },
   { key: 'templates', href: '/templates', title: 'WhatsApp Templates', icon: MessageSquareText, group: 'Customers', perm: 'use_templates' },
-  { key: 'team', href: '/team', title: 'Team', icon: UserCog, group: 'Management', owner: true, feature: 'team' },
-  { key: 'tasks', href: '/tasks', title: 'Tasks', icon: ListChecks, group: 'Management', badge: 'tasks', feature: 'tasks' },
+  { key: 'team', href: '/team', title: 'Team', icon: UserCog, group: 'Management', owner: true, feature: 'team', fab: { label: 'Register assistant', owner: true } },
+  { key: 'tasks', href: '/tasks', title: 'Tasks', icon: ListChecks, group: 'Management', badge: 'tasks', feature: 'tasks', fab: { label: 'Assign task', owner: true } },
   { key: 'approvals', href: '/approvals', title: 'Approvals', icon: ShieldCheck, group: 'Management', owner: true, badge: 'approvals', feature: 'team' },
-  { key: 'messages', href: '/messages', title: 'Messages', icon: MessagesSquare, group: 'Management', badge: 'messages', feature: 'team' },
+  { key: 'messages', href: '/messages', title: 'Messages', icon: MessagesSquare, group: 'Management', badge: 'messages', feature: 'team', fab: { label: 'New message' } },
   { key: 'activity', href: '/activity', title: 'Activity Log', icon: Activity, group: 'Management', owner: true, feature: 'team' }
 ];
 const GROUPS = ['Overview', 'Sales', 'Finance & Ops', 'Customers', 'Management'];
@@ -183,6 +187,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (stage !== 'ready') return <Preloader />;
 
   const unread = unreadMsgCount(ws, user), tasks = pendingTaskCount(ws, user);
+  const fabHere = !!current?.fab && (current.fab.owner ? isOwner : current.fab.perm ? can(current.fab.perm) : true);
 
   return (
     <>
@@ -270,8 +275,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      {can('record_sales') && (
-        <Link className="fab" href="/sales?new=1" aria-label="Quick sale"><Plus /></Link>
+      {fabHere ? (
+        <button className="fab" onClick={fireFab} aria-label={current!.fab!.label} title={current!.fab!.label}><Plus /></button>
+      ) : can('record_sales') && (
+        <Link className="fab" href="/sales?new=1" aria-label="Quick sale" title="Quick sale"><Plus /></Link>
       )}
 
       <nav className="mob-nav"><div className="mob-nav-row">
