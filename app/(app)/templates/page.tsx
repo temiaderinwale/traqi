@@ -40,7 +40,7 @@ export default function TemplatesPage() {
 
   return (
     <>
-      <PageHead title="WhatsApp Templates" sub="Fill in a customer and send in two taps" />
+      <PageHead sub="Fill in a customer and send in two taps" />
       <div className="two-col">
         {TEMPLATES.map((t, i) => (
           <Card key={t.tag}>

@@ -49,8 +49,28 @@ export function newToken(): string {
   return Array.from(b, x => x.toString(16).padStart(2, '0')).join('');
 }
 
-export const inviteUrl = (token: string) =>
-  (typeof window === 'undefined' ? '' : window.location.origin) + '/join?t=' + token;
+/* Where an invite link should point.
+
+   Live, this needs no configuration: the link is built from whatever origin
+   the app is actually being served from, so it is traqi.vercel.app on the
+   production deploy and the preview URL on a preview one — the domain follows
+   the deployment on its own.
+
+   The single case that cannot work that way is a link minted on localhost,
+   which resolves to the sender's own machine and opens nothing on the
+   recipient's phone. There, and only there, we fall back to the public site
+   so a link shared while testing still works. Set NEXT_PUBLIC_SITE_URL to
+   change what that fallback is. */
+const LOCAL_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|[^/]*\.local)(:\d+)?$/i;
+const PUBLIC_SITE = (process.env.NEXT_PUBLIC_SITE_URL || 'https://traqi.vercel.app').replace(/\/+$/, '');
+
+export function appOrigin(): string {
+  if (typeof window === 'undefined') return PUBLIC_SITE;
+  const here = window.location.origin;
+  return LOCAL_ORIGIN.test(here) ? PUBLIC_SITE : here;
+}
+
+export const inviteUrl = (token: string) => appOrigin() + '/join?t=' + token;
 
 export async function getInvite(token: string): Promise<AssistantInvite | null> {
   if (!token) return null;

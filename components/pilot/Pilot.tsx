@@ -16,7 +16,7 @@
    Everything below the hero is the landing page's own content, so the two
    pages keep telling the same story. */
 
-import { useEffect } from 'react';
+
 import { ArrowRight, ArrowUp, BarChart3, BellRing, CheckCircle2, ChevronRight, Hourglass, Instagram, Linkedin, Package, Receipt, Star, Twitter, Users } from 'lucide-react';
 import { Mark, Wordmark } from '@/components/Brand';
 import Showcase from '@/components/landing/Showcase';
@@ -77,17 +77,6 @@ const FAQS: FaqItem[] = [
 ];
 
 export default function Pilot({ images }: { images: string[] }) {
-  /* Phones see the whole page a step smaller, so more of it is on screen at
-     once. Every Tailwind size and gap is in rem, so moving the root font-size
-     shrinks type and spacing together rather than squashing one against the
-     other. It rides on <html> because that is what rem answers to, and comes
-     off again when the page unmounts — no other route is affected. */
-  useEffect(() => {
-    const root = document.documentElement;
-    root.classList.add('pilot-zoom');
-    return () => root.classList.remove('pilot-zoom');
-  }, []);
-
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <Reveal />

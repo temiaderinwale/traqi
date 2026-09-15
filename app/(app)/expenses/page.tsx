@@ -26,7 +26,7 @@ export default function ExpensesPage() {
   };
   return (
     <>
-      <PageHead title="Expenses" sub="Every naira going out"
+      <PageHead sub="Every naira going out"
         actions={can('add_expenses') ? <button className="btn btn-primary" onClick={() => { setEditing(null); setForm(true); }}><Plus />Add Expense</button> : null} />
       <KpiGrid>
         <Kpi icon={Wallet} tone="red" label="Total expenses" value={money(total)} />

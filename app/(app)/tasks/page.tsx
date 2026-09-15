@@ -46,7 +46,7 @@ export default function TasksPage() {
 
   return (
     <>
-      <PageHead title="Tasks" sub={isOwner ? 'Assign work and track completion' : 'Work assigned to you'}
+      <PageHead sub={isOwner ? 'Assign work and track completion' : 'Work assigned to you'}
         actions={isOwner ? <button className="btn btn-primary" onClick={() => setForm(true)}><Plus />Assign Task</button> : null} />
       <KpiGrid>
         <Kpi icon={ListChecks} tone="amber" label="Pending" value={pending} />

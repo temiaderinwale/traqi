@@ -8,21 +8,13 @@
    the product from here; we let people in by hand, after we have spoken. */
 
 import { useRef, useState } from 'react';
-import { AlertCircle, CheckCircle2, Loader2, PartyPopper, Send } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Loader2, PartyPopper, Send, SendHorizontal } from 'lucide-react';
 import {
   BLANK_SIGNUP, BUSINESS_CATEGORIES, LIMITS, OTHER_CATEGORY, WHATSAPP_DISPLAY,
-  isEmail, isPhone, submitPilotSignup, whatsappLink, type PilotSignup
+  isEmail, isPhone, signupMessage, submitPilotSignup, whatsappLink, type PilotSignup
 } from '@/lib/pilot';
 
 type Errors = Partial<Record<keyof PilotSignup, string>>;
-
-/** WhatsApp's own glyph. Lucide's MessageCircle reads as any chat app; at the
-    size this button wants it, the real mark is what people recognise. */
-const WhatsAppMark = ({ className = '' }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
-    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.174.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
-  </svg>
-);
 
 const FIELD = 'w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm text-slate-900 transition-colors placeholder:text-slate-400 '
   + 'dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-600';
@@ -67,50 +59,47 @@ function validate(f: PilotSignup): Errors {
 /** What replaces the form once an application is in. Loud on purpose: this is
     the one step we need people to take, and they have just told us they are
     interested, so the moment to ask is now. */
-function Done() {
+function Done({ f }: { f: PilotSignup }) {
   return (
     /* Everything on one centre line, and centred in the card as well: on a
        desktop the card is a fixed square, and this panel is far shorter than
        the form it replaced, so left alone it would sit in the top corner of a
        lot of empty white. */
     <div className="pilot-pop flex min-h-full flex-col items-center justify-center text-center">
-      <span className="grid h-16 w-16 place-items-center rounded-2xl bg-green-50 dark:bg-green-500/10">
-        <PartyPopper className="h-8 w-8 text-green-600 dark:text-green-400" />
+      {/* The same gold-through-purple run as the button below it, turned on
+          the diagonal so the two read as a pair rather than a repeat. */}
+      <span className="grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-amber-400 via-orange-500 to-indigo-600 shadow-lg shadow-orange-500/25">
+        <PartyPopper className="h-8 w-8 text-white" />
       </span>
 
       <h3 className="mt-5 font-display text-2xl font-extrabold text-balance sm:text-3xl">
         You are now on the list
       </h3>
-      <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">One more step</p>
 
       <div className="relative mt-7 w-full">
-        {/* A quiet halo behind the panel, so the eye goes there and nowhere
+        {/* A quiet halo behind the button, so the eye goes there and nowhere
             else on the card. */}
-        <span aria-hidden="true" className="pilot-halo absolute inset-0 rounded-2xl bg-green-500/30 blur-xl" />
-        <div className="relative rounded-2xl border border-green-200 bg-gradient-to-br from-green-50 to-white px-3 py-7 dark:border-green-500/20 dark:from-green-500/10 dark:to-slate-900 sm:px-6">
-          <p className="mx-auto max-w-[28ch] font-display text-lg font-extrabold leading-snug text-balance">
-            Would you like to be one of the early users to use this application?
-          </p>
-          <p className="mt-2.5 text-sm text-slate-500 dark:text-slate-400">Send Traqi a message now</p>
+        <span aria-hidden="true" className="pilot-halo absolute inset-0 rounded-2xl bg-amber-500/30 blur-xl" />
 
-          {/* Mark and words as one unit: a tight gap, centred on each other,
-              and the label on a single line whatever the screen. Keeping it
-              unbroken while leaving clear space at both ends is what wa-cta
-              in globals.css is for — it sizes the label off the button's own
-              width rather than the viewport's. */}
-          <a href={whatsappLink()} target="_blank" rel="noopener noreferrer"
-            className="wa-cta pilot-nudge mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] px-3 py-4 font-bold text-white shadow-lg shadow-green-600/25 transition-all hover:bg-[#1FB855] hover:shadow-xl hover:shadow-green-600/30 sm:gap-2.5 sm:px-5">
-            <WhatsAppMark className="h-6 w-6 shrink-0 sm:h-7 sm:w-7" />
-            <span className="wa-cta-label whitespace-nowrap leading-none">
-              Continue with Traqi Admin on WhatsApp
-            </span>
-          </a>
-
-          <p className="tnum mt-3.5 text-xs text-slate-400">{WHATSAPP_DISPLAY}</p>
-        </div>
+        {/* Gold running into the brand indigo — Traqi's own two colours. The
+            label is short enough to sit large, and `wa-cta` sizes it off the
+            button's own width so it keeps clear air at both ends at every
+            screen size rather than only at the one it was tuned on. */}
+        <a href={whatsappLink(signupMessage(f))} target="_blank" rel="noopener noreferrer"
+          className="wa-cta pilot-nudge relative flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-amber-500 via-orange-600 to-indigo-700 px-4 py-4 font-bold text-white shadow-lg shadow-amber-600/25 transition-all hover:shadow-xl hover:shadow-amber-600/35 hover:brightness-110 sm:px-6">
+          {/* One font-size on the inner row drives both the words and the
+              icon, so the mark grows and shrinks with the label instead of
+              needing its own matching set of sizes. */}
+          <span className="wa-cta-inner">
+            <SendHorizontal className="wa-cta-icon" />
+            <span className="whitespace-nowrap">Click here for next step</span>
+          </span>
+        </a>
       </div>
 
-      <p className="mt-7 flex items-center justify-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+      <p className="tnum mt-4 text-xs text-slate-400">{WHATSAPP_DISPLAY}</p>
+
+      <p className="mt-6 flex items-center justify-center gap-2 text-sm text-slate-500 dark:text-slate-400">
         <CheckCircle2 className="h-4 w-4 shrink-0 text-indigo-600 dark:text-indigo-400" />
         We review every application ourselves
       </p>
@@ -170,7 +159,7 @@ export default function PilotForm() {
           while somebody works down the form. Both columns are the same width,
           so one aspect-square on each is all it takes to match them. */}
       <div className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-xl shadow-slate-900/5 dark:border-slate-800 dark:bg-slate-900 sm:p-8 lg:aspect-square lg:overflow-y-auto">
-        {done ? <Done /> : (
+        {done ? <Done f={f} /> : (
           <>
             {/* The card opens on type alone — no badge, no icon, nothing
                 boxed in behind the words. The colour is in the letterforms
@@ -269,7 +258,7 @@ export default function PilotForm() {
               {/* One box for both questions — the second is an instruction to
                   put anything else in this same answer, not a field of its own. */}
               <div>
-                <Label htmlFor="p-about">Tell us briefly, in a sentence</Label>
+                <Label htmlFor="p-about">Tell us briefly</Label>
                 <p className="-mt-1 mb-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
                   How do you believe Traqi can better organise your business operations?
                 </p>

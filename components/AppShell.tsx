@@ -249,20 +249,26 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="main">
           <header className="topbar"><div className="topbar-inner">
             {pathname !== '/dashboard' && (
-              <Link className="icon-btn" href="/dashboard" aria-label="Dashboard"><ArrowLeft /></Link>
+              <Link className="icon-btn topbar-back" href="/dashboard" aria-label="Dashboard"><ArrowLeft /></Link>
             )}
-            <h1 className="font-display" style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0 }}>{current?.title || 'Traqi'}</h1>
+            <h1 className="topbar-title font-display">
+              <span className="grad">{current?.title || 'Traqi'}</span>
+            </h1>
+            {/* On a phone the row belongs to the title, so the three controls
+                that also live in Settings — currency, theme, and the date the
+                dashboard already prints — stand down there. `topbar-extra`
+                is what hides them. */}
             <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
               {isOwner && (
-                <span className={'badge ' + (tier.key === 'pro' ? 'badge-indigo' : tier.key === 'lite' ? 'badge-amber' : 'badge-slate')}
+                <span className={'badge topbar-tier ' + (tier.key === 'pro' ? 'badge-indigo' : tier.key === 'lite' ? 'badge-amber' : 'badge-slate')}
                   style={{ cursor: 'pointer' }} onClick={() => setSettings(true)} title="Your plan — tap to change">
                   {tier.name}
                 </span>
               )}
-              <span className="badge badge-indigo" style={{ cursor: 'pointer' }} onClick={() => setCurrency(currency === 'NGN' ? 'USD' : 'NGN')}>
+              <span className="badge badge-indigo topbar-extra" style={{ cursor: 'pointer' }} onClick={() => setCurrency(currency === 'NGN' ? 'USD' : 'NGN')}>
                 {currency === 'NGN' ? '₦ NGN' : '$ USD'}
               </span>
-              <span className="badge badge-slate">{new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+              <span className="badge badge-slate topbar-extra">{new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
               <button className="icon-btn" onClick={toggle} aria-label="Toggle theme">{dark ? <Sun /> : <Moon />}</button>
               <Link className="icon-btn" href="/messages" aria-label="Messages" style={{ position: 'relative' }}>
                 <Bell />
@@ -281,21 +287,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <Link className="fab" href="/sales?new=1" aria-label="Quick sale" title="Quick sale"><Plus /></Link>
       )}
 
-      <nav className="mob-nav"><div className="mob-nav-row">
-        {[NAV[0], NAV.find(n => n.key === 'sales')!, NAV.find(n => n.key === 'customers')!, NAV.find(n => n.key === 'financials')!]
-          .filter(visible).map(n => {
-            const Icon = n.icon;
-            return (
-              <Link key={n.key} href={n.href} className={'mob-item' + (pathname === n.href ? ' active' : '')}>
-                <Icon />{n.key === 'home' ? 'Home' : n.key === 'financials' ? 'Reports' : n.title.split(' ')[0]}
-              </Link>
-            );
-          })}
-        <button className="mob-item" onClick={() => setDrawer(d => !d)}><Menu />More</button>
-      </div></nav>
-
-      {drawer && (
-        <div className="mob-drawer open">
+      {/* The module sheet lives inside the bar rather than floating above it.
+          As a sibling it was pinned at a fixed distance from the bottom, which
+          only matched the bar's height at one root font size — every other
+          size showed a strip of the page between the two. Nested, they are one
+          block on one background and there is no seam to get wrong. */}
+      <nav className="mob-nav">
+        {drawer && (
+          <div className="mob-drawer open">
           {GROUPS.filter(g => g !== 'Overview').map(g => {
             const items = NAV.filter(n => n.group === g && visible(n));
             if (!items.length) return null;
@@ -319,8 +318,22 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <div className="mob-sub" onClick={logout}><LogOut />Sign Out</div>
             </div>
           </div>
+          </div>
+        )}
+
+        <div className="mob-nav-row">
+          {[NAV[0], NAV.find(n => n.key === 'sales')!, NAV.find(n => n.key === 'customers')!, NAV.find(n => n.key === 'financials')!]
+            .filter(visible).map(n => {
+              const Icon = n.icon;
+              return (
+                <Link key={n.key} href={n.href} className={'mob-item' + (pathname === n.href ? ' active' : '')}>
+                  <Icon />{n.key === 'home' ? 'Home' : n.key === 'financials' ? 'Reports' : n.title.split(' ')[0]}
+                </Link>
+              );
+            })}
+          <button className="mob-item" onClick={() => setDrawer(d => !d)}><Menu />More</button>
         </div>
-      )}
+      </nav>
 
       {toast && (
         <div className="toast show">

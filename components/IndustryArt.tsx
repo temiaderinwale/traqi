@@ -1,11 +1,11 @@
 /* Traqi — a picture for each kind of business.
 
-   Drawn rather than photographed: eight scenes that share one geometry, one
-   light source and one palette, so the choice reads as a set instead of eight
+   Drawn rather than photographed: nine scenes that share one geometry, one
+   light source and one palette, so the choice reads as a set instead of nine
    borrowed stock images. Each sits on its own two-tone ground and is built
    from the same rounded-rectangle vocabulary as the Traqi mark. */
 
-import type { IndustryKey } from '@/lib/industries';
+import type { IndustryChoice } from '@/lib/industries';
 
 type ArtProps = { className?: string };
 
@@ -188,12 +188,39 @@ const Kitchen = () => (
   </Scene>
 );
 
-const ART: Record<IndustryKey, () => JSX.Element> = {
+/** Other — a shopfront under a striped awning, and a plus for the trade the
+    owner is about to name. Deliberately the one scene with no goods in it. */
+const Other = () => (
+  <Scene from="#8B5CF6" to="#DB2777">
+    <g {...soft(0.92)}>
+      <path d="M32 48h60a4 4 0 0 1 4 4v50H28V52a4 4 0 0 1 4-4Z" />
+    </g>
+    <g {...soft(0.78)}>
+      <path d="M24 34h76l8 14H16l8-14Z" />
+    </g>
+    <g fill="#7C3AED" opacity=".32">
+      <rect x="34" y="36" width="9" height="12" />
+      <rect x="57" y="36" width="9" height="12" />
+      <rect x="80" y="36" width="9" height="12" />
+    </g>
+    <rect x="38" y="62" width="24" height="40" rx="4" fill="#7C3AED" opacity=".35" />
+    <rect x="70" y="62" width="20" height="20" rx="4" fill="#7C3AED" opacity=".28" />
+    <g {...soft(0.95)}>
+      <rect x="108" y="58" width="38" height="38" rx="12" />
+    </g>
+    <g stroke="#DB2777" strokeOpacity=".55" strokeWidth="6" strokeLinecap="round">
+      <path d="M127 70v14M120 77h14" />
+    </g>
+  </Scene>
+);
+
+const ART: Record<IndustryChoice, () => JSX.Element> = {
   fashion: Fashion, fabrics: Fabrics, beauty: Beauty, fragrance: Fragrance,
-  electronics: Electronics, wholesale: Wholesale, gadgets: Gadgets, kitchen: Kitchen
+  electronics: Electronics, wholesale: Wholesale, gadgets: Gadgets, kitchen: Kitchen,
+  other: Other
 };
 
-export default function IndustryArt({ industry, className = '' }: ArtProps & { industry: IndustryKey }) {
+export default function IndustryArt({ industry, className = '' }: ArtProps & { industry: IndustryChoice }) {
   const Art = ART[industry];
   return <span className={'block overflow-hidden ' + className}><Art /></span>;
 }

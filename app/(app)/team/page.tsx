@@ -1,13 +1,13 @@
 'use client';
 import React, { useState } from 'react';
-import { Check, Copy, Link2, Mail, MessageCircle, Pencil, ShieldCheck, UserPlus, Users } from 'lucide-react';
+import { Check, Copy, Link2, MessageCircle, Pencil, ShieldCheck, UserPlus, Users } from 'lucide-react';
 import { useTraqi } from '@/lib/store';
 import { useFabAction } from '@/lib/fab';
 import { fmtDate } from '@/lib/format';
 import { ALL_PERMS } from '@/lib/compute';
 import { PageHead, EmptyState, Card, Badge, Avatar } from '@/components/ui';
 import { AssistantForm } from '@/components/forms';
-import { ensureInvite, inviteMessage, mailtoInvite, queueInviteEmail, whatsappInvite } from '@/lib/invites';
+import { ensureInvite, inviteMessage, whatsappInvite } from '@/lib/invites';
 import type { Assistant } from '@/lib/types';
 
 export default function TeamPage() {
@@ -43,19 +43,6 @@ export default function TeamPage() {
     setBusy('');
   };
 
-  const sendEmail = (a: Assistant) => withBusy(a, 'mail', async ({ inv, url }) => {
-    try {
-      await queueInviteEmail(inv, url);
-      log('Sent assistant invite', `${a.name} · ${a.email}`);
-      showToast(`Invite sent to ${a.email}`);
-    } catch {
-      /* No mail queue configured — hand it to the owner's own mail client. */
-      window.location.href = mailtoInvite(a.email,
-        `${ws.config.ownerName} added you to ${ws.config.bizName} on Traqi`, inviteMessage(inv, url));
-      showToast('Opening your email app with the invite');
-    }
-  });
-
   const sendWhatsApp = (a: Assistant) => withBusy(a, 'wa', ({ inv, url }) => {
     window.open(whatsappInvite(a.phone, inviteMessage(inv, url)), '_blank', 'noopener');
     log('Sent assistant invite', `${a.name} · WhatsApp`);
@@ -74,7 +61,7 @@ export default function TeamPage() {
 
   return (
     <>
-      <PageHead title="Team"
+      <PageHead
         sub={`${ws.assistants.length} assistant${ws.assistants.length === 1 ? '' : 's'} registered · ${joined} with their own sign-in`}
         actions={<button className="btn btn-primary" onClick={() => { setEditing(null); setForm(true); }}><UserPlus />Register Assistant</button>} />
 
@@ -119,10 +106,9 @@ export default function TeamPage() {
                   Invite {a.name} to set up their own sign-in — the link fills in the business, their name
                   and their email, and only {a.email} can use it.
                 </p>
+                {/* WhatsApp and the raw link only. The emailed invite is
+                    deliberately not offered here. */}
                 <div className="row-actions" style={{ justifyContent: 'flex-start' }}>
-                  <button className="btn btn-primary btn-sm" disabled={busy === a.id + 'mail'} onClick={() => sendEmail(a)}>
-                    <Mail />Send invite
-                  </button>
                   <button className="btn btn-wa btn-sm" disabled={busy === a.id + 'wa'} onClick={() => sendWhatsApp(a)}>
                     <MessageCircle />Send on WhatsApp
                   </button>

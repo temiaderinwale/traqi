@@ -28,6 +28,20 @@
 }
 *{box-sizing:border-box}
 html,body{height:100%}
+
+/* ---------- Phones see the whole product a step smaller ----------
+   Every size in this sheet and every Tailwind utility is stated in rem, so
+   moving the root shrinks type, padding and gaps together — the page zooms
+   out rather than one part squashing against another. It tracks the viewport
+   between bounds instead of stepping at a breakpoint, so a 360px phone gets
+   more of the reduction than a 430px one, which is where it is actually
+   needed. Above 768px nothing changes.
+
+   Anything still stated in px — nav bar heights, tap targets, hairlines —
+   deliberately holds its size: those are set by the finger, not the layout. */
+@media(max-width:767px){
+  html{font-size:clamp(13.5px,3.6vw,15.5px)}
+}
 body{margin:0;font-family:'Inter',ui-sans-serif,system-ui,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
 .font-display{font-family:'Archivo',ui-sans-serif,sans-serif;letter-spacing:-.02em}
 .tnum{font-variant-numeric:tabular-nums}
@@ -77,6 +91,9 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .main{flex:1;min-width:0;display:flex;flex-direction:column}
 .topbar{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--bg) 85%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
 .topbar-inner{display:flex;align-items:center;gap:10px;padding:0 16px;height:64px}
+/* The title holds one line and takes whatever the controls leave it; min-width
+   is what lets a flex item shrink below its content at all. */
+.topbar-title{margin:0;font-size:1.05rem;font-weight:800;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .content{flex:1;padding:22px 16px 100px;max-width:1400px;width:100%;margin:0 auto}
 @media(min-width:1024px){.topbar-inner{padding:0 32px}.content{padding:24px 32px 40px}}
 
@@ -111,14 +128,27 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .card-hover{transition:transform .25s var(--ease),box-shadow .25s var(--ease)}
 .card-hover:hover{transform:translateY(-2px);box-shadow:0 8px 24px -8px rgba(15,23,42,.14)}
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px}
-.kpi{background:var(--surface);border:1px solid var(--border);border-radius:1rem;padding:16px 18px;box-shadow:0 1px 2px rgba(15,23,42,.04);transition:transform .25s var(--ease),box-shadow .25s var(--ease)}
+.kpi{position:relative;overflow:hidden;background:var(--surface);border:1px solid var(--border);border-radius:1rem;padding:16px 18px;box-shadow:0 1px 2px rgba(15,23,42,.04);transition:transform .25s var(--ease),box-shadow .25s var(--ease)}
+/* A brand-coloured seam along the top edge, drawn in only on hover so the
+   grid stays calm when nobody is pointing at it. */
+.kpi::before{content:"";position:absolute;inset:0 0 auto;height:3px;
+  background:linear-gradient(90deg,var(--indigo-600),var(--amber-500));
+  opacity:0;transition:opacity .25s var(--ease)}
 .kpi:hover{transform:translateY(-2px);box-shadow:0 8px 24px -8px rgba(15,23,42,.14)}
+.kpi:hover::before{opacity:1}
 .kpi-head{display:flex;align-items:center;gap:10px}
-.kpi-ico{width:36px;height:36px;border-radius:.7rem;display:grid;place-items:center;flex-shrink:0;background:var(--indigo-50);color:var(--indigo-600)}
+/* Tinted rather than flat, with a hairline of its own colour — enough to read
+   as an object without adding another border to the card. */
+.kpi-ico{width:36px;height:36px;border-radius:.7rem;display:grid;place-items:center;flex-shrink:0;
+  background:linear-gradient(140deg,var(--indigo-50),color-mix(in srgb,var(--indigo-600) 15%,transparent));
+  color:var(--indigo-600);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--indigo-600) 12%,transparent)}
 .kpi-ico svg{width:16px;height:16px}
-.kpi-ico.green{background:var(--green-50);color:var(--green-600)}
-.kpi-ico.red{background:var(--red-50);color:var(--red-600)}
-.kpi-ico.amber{background:var(--amber-50);color:var(--amber-500)}
+.kpi-ico.green{background:linear-gradient(140deg,var(--green-50),color-mix(in srgb,var(--green-600) 15%,transparent));
+  color:var(--green-600);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--green-600) 12%,transparent)}
+.kpi-ico.red{background:linear-gradient(140deg,var(--red-50),color-mix(in srgb,var(--red-600) 15%,transparent));
+  color:var(--red-600);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--red-600) 12%,transparent)}
+.kpi-ico.amber{background:linear-gradient(140deg,var(--amber-50),color-mix(in srgb,var(--amber-500) 18%,transparent));
+  color:var(--amber-500);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--amber-500) 14%,transparent)}
 .kpi-label{font-size:.78rem;color:var(--text-2);font-weight:500}
 .kpi-value{font-family:'Archivo',sans-serif;font-weight:800;font-size:1.7rem;line-height:1.1;margin-top:12px;font-variant-numeric:tabular-nums}
 .kpi-sub{font-size:.74rem;color:var(--text-2);margin-top:6px;display:flex;align-items:center;gap:4px}
@@ -128,12 +158,47 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .neg{color:var(--red-600);font-weight:600}
 .warn-t{color:var(--amber-500);font-weight:600}
 
+/* ---------- Gradient type ----------
+   The brand's indigo running into its amber, painted through the letterforms.
+   Reserved for the words that name a place — page titles, the module name in
+   the topbar, the owner's name in the greeting. Not for body copy: the amber
+   end sits around 3:1 on white, which is fine for large bold type and not for
+   anything smaller. A clipped gradient is cut into per-line fragments when it
+   wraps, so it goes on short phrases only. */
+/* Indigo travelling into purple — enough movement to read as colour, all of
+   it on the cool side of the wheel. Running the whole way to the brand's
+   amber is what made this shout: crossing to the opposite hue both muddies
+   the middle and pulls the eye off the content. The warm half of the palette
+   stays where it is an accent and not a surface — the KPI seam, the pilot
+   page's call to action. */
+.grad{background-image:linear-gradient(100deg,#4338CA 0%,#5D4BE8 28%,#8B5CF6 62%,#B935E8 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+/* Dark mode is not the light ramp lightened — pastels on a near-black ground
+   go chalky and the letterforms lose their edge. These are the saturated
+   400-level hues instead: brighter than the ground by a wide margin, so the
+   type stays crisp, and far enough apart in hue that the sweep still reads. */
+.dark .grad{background-image:linear-gradient(100deg,#818CF8 0%,#A78BFA 30%,#C084FC 62%,#E879F9 100%)}
+
+/* The short rule that opens the dashboard header — the same device the pilot
+   page uses, so arriving in the app feels like the same product. */
+/* Runs the same ramp as .grad, so the rule and the words under it read as one
+   mark rather than two near-misses. */
+.head-rule{display:block;width:34px;height:3px;border-radius:99px;margin-bottom:11px;
+  background:linear-gradient(90deg,#4F46E5,#A855F7)}
+.dark .head-rule{background:linear-gradient(90deg,#818CF8,#C084FC)}
+
 /* ---------- Section headers ---------- */
 .sec-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
 .sec-title{font-family:'Archivo',sans-serif;font-weight:800;font-size:1.15rem;display:flex;align-items:center;gap:8px}
-.sec-title svg{width:18px;height:18px;color:var(--indigo-600)}
-.page-h1{font-family:'Archivo',sans-serif;font-weight:800;font-size:1.7rem}
-.page-sub{font-size:.85rem;color:var(--text-2);margin-top:4px}
+/* The icon sits in a tinted chip rather than floating beside the words, which
+   gives every section head the same anchor the KPI tiles have. */
+.sec-title svg{width:18px;height:18px;color:var(--indigo-600);flex-shrink:0;box-sizing:content-box;
+  padding:5px;border-radius:.55rem;background:linear-gradient(140deg,var(--indigo-50),color-mix(in srgb,var(--indigo-600) 13%,transparent))}
+.page-h1{font-family:'Archivo',sans-serif;font-weight:800;font-size:1.7rem;letter-spacing:-.02em;line-height:1.15}
+.page-sub{font-size:.85rem;color:var(--text-2);margin-top:5px}
+/* A module's opening line now that the name is only in the topbar: it leads
+   the page, so it carries a little more weight than a subtitle would. */
+.page-lede{font-size:.92rem;color:var(--text-2);line-height:1.5}
 
 /* ---------- Badges ---------- */
 .badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:99px;font-size:.68rem;font-weight:700;white-space:nowrap}
@@ -291,7 +356,12 @@ input[readonly]{background:var(--slate-100);font-weight:600}
 .mob-item{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px;background:none;border:none;color:#94A3B8;font-size:.6rem;font-family:inherit;cursor:pointer}
 .mob-item svg{width:19px;height:19px}
 .mob-item.active,.mob-item:hover{color:#fff}
-.mob-drawer{position:fixed;bottom:62px;left:0;right:0;background:var(--indigo-950);border-top:1px solid rgba(255,255,255,.1);z-index:69;padding:12px;display:none;max-height:70vh;overflow-y:auto}
+/* Sits inside .mob-nav, stacked directly on the row, so the two share one
+   background with no seam between them at any root font size. Half the screen
+   at most and it scrolls inside that — every module stays reachable without
+   the sheet swallowing the page behind it. `overscroll` keeps a flick at the
+   end of the list from carrying on into the page. */
+.mob-drawer{display:none;padding:12px 12px 4px;max-height:50vh;overflow-y:auto;overscroll-behavior:contain}
 .mob-drawer.open{display:block}
 .mob-group{background:rgba(255,255,255,.04);border:1px solid rgba(129,140,248,.16);border-radius:.75rem;margin-bottom:8px;overflow:hidden}
 .mob-group-head{width:100%;display:flex;align-items:center;gap:8px;padding:10px 12px;background:none;border:none;color:var(--indigo-400);
@@ -307,6 +377,53 @@ input[readonly]{background:var(--slate-100);font-weight:600}
   .sidebar{display:none}
   .mob-nav{display:block}
   .content{padding-bottom:110px}
+}
+
+/* ---------- Phone topbar ----------
+   The row is narrow enough that the title and the controls cannot both have
+   it. The title wins: currency, theme and the date step out (all three are in
+   Settings, and the dashboard prints the date anyway), which leaves the name
+   of the page room to sit on one line. */
+@media(max-width:767px){
+  .topbar-extra{display:none!important}
+  .topbar-inner{gap:8px;padding:0 12px}
+
+  /* The header answers the bottom bar: both are deep, saturated bands that
+     hold the page between them. Not the same though — the bar is flat
+     indigo-950, this runs that indigo across into plum, so they read as a
+     pair rather than a repeat. One treatment for both themes, since a band
+     this dark needs no help separating from either ground. */
+  .topbar{
+    background:linear-gradient(115deg,#1E1B4B 0%,#2E1B63 38%,#4A1D6B 72%,#5B1E5E 100%);
+    border-bottom:1px solid rgba(255,255,255,.12);
+    backdrop-filter:none;
+    box-shadow:0 8px 22px -14px rgba(30,27,75,.85)
+  }
+  /* Everything inside it is now sitting on near-black, so the type and the
+     controls take the light end of the palette. */
+  .topbar .grad{background-image:linear-gradient(100deg,#A5B4FC 0%,#C4A9FB 45%,#F0ABFC 100%)}
+  .topbar .icon-btn{color:#C7D2FE}
+  .topbar .icon-btn:hover{background:rgba(255,255,255,.14)}
+  .topbar .badge-indigo{background:rgba(129,140,248,.26);color:#DDD6FE}
+  .topbar .badge-amber{background:rgba(245,158,11,.24);color:#FCD34D}
+  .topbar .badge-slate{background:rgba(255,255,255,.14);color:#E2E8F0}
+
+
+}
+
+/* The back arrow stands down on every phone: all it ever did was return to
+   the dashboard, and the bottom bar's Home tab is already that. Giving the
+   row those ~44px is what lets the longest title ("WhatsApp Templates") sit
+   unbroken next to the controls. */
+@media(max-width:767px){
+  .topbar-back{display:none}
+}
+/* On the narrowest phones the title steps down and the plan badge goes too —
+   the plan is shown and changed in Settings as well, so it is the cheapest
+   thing in the row to give up. The bell stays: it carries the unread dot. */
+@media(max-width:359px){
+  .topbar-title{font-size:.95rem}
+  .topbar-tier{display:none}
 }
 
 /* ---------- Auth screen ---------- */
@@ -535,6 +652,24 @@ body.auth-mode .app-wrap,body.auth-mode .mob-nav,body.auth-mode .fab,body.auth-m
   backdrop-filter:blur(10px);border-top:1px solid var(--border);padding:14px 20px;
   display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
 
+/* ---------- Welcome: naming a trade of your own ("Other") ---------- */
+.wl-form{max-width:32rem;margin:0 auto;display:flex;flex-direction:column;gap:22px;
+  background:var(--surface);border:1px solid var(--border);border-radius:1rem;padding:24px;
+  box-shadow:0 1px 2px rgba(15,23,42,.04);animation:wlCard .5s var(--ease) both}
+/* The field and its Add button share a row; the input takes what is left. */
+.wl-catrow{display:flex;gap:8px;align-items:center}
+.wl-catrow input{flex:1;min-width:0}
+.wl-catrow .btn{flex-shrink:0}
+.wl-chips{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.wl-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 6px 6px 12px;border-radius:99px;
+  background:var(--indigo-50);color:var(--indigo-600);font-size:.78rem;font-weight:600;
+  animation:wlChip .25s var(--ease) both}
+@keyframes wlChip{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:none}}
+.wl-chip button{display:grid;place-items:center;width:18px;height:18px;border:none;border-radius:99px;
+  background:color-mix(in srgb,var(--indigo-600) 16%,transparent);color:inherit;cursor:pointer;padding:0}
+.wl-chip button:hover{background:var(--indigo-600);color:#fff}
+.wl-chip svg{width:11px;height:11px}
+
 /* ---------- Category picker ---------- */
 .cat-trigger{width:100%;display:flex;align-items:center;gap:8px;text-align:left;font:inherit;font-size:.86rem;
   background:var(--surface);border:1px solid var(--border);border-radius:.75rem;padding:.62rem .8rem;cursor:pointer;color:var(--text)}
@@ -573,8 +708,11 @@ body.auth-mode .app-wrap,body.auth-mode .mob-nav,body.auth-mode .fab,body.auth-m
    what holds that gutter at roughly 6% rather than letting it collapse as the
    button narrows; the vw line above it is the fallback where cqi is missing. */
 .wa-cta{container-type:inline-size}
-.wa-cta-label{font-size:clamp(.7rem,3.05vw,1rem)}
-.wa-cta-label{font-size:clamp(.7rem,calc(4.5cqi - 1.9px),1rem)}
+.wa-cta-inner{display:flex;align-items:center;justify-content:center;gap:.55em;line-height:1}
+.wa-cta-inner{font-size:clamp(.95rem,4.6vw,1.35rem)}
+.wa-cta-inner{font-size:clamp(.95rem,5.7cqi,1.35rem)}
+/* In em, so the mark tracks whatever size the label has settled at. */
+.wa-cta-icon{width:1.3em;height:1.3em;flex-shrink:0}
 
 /* ---------- Admin: a value that copies itself ----------
    Reads as the plain text in the cell; the dashed rule is the only hint that
@@ -587,13 +725,9 @@ body.auth-mode .app-wrap,body.auth-mode .mob-nav,body.auth-mode .fab,body.auth-m
    Pilot page (/pilot) — continued
    ============================================================ */
 
-/* Phones get the whole page a step smaller, so more of it fits on screen at
-   once and nothing has to be squashed to manage it. Tailwind states every
-   size and gap in rem, so one root font-size scales type and spacing in step.
-   Set from the page itself, and only while it is mounted. */
-@media(max-width:767px){
-  html.pilot-zoom{font-size:14px}
-}
+/* The pilot page used to shrink itself on phones from its own class. That is
+   now the root rule at the top of this sheet, applied to every page, so there
+   is nothing left for this page to do on its own. */
 
 /* The carousel picture drifts while it sits, so a slide that stays on screen
    for nearly five seconds never looks like a frozen frame. */

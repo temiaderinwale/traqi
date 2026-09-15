@@ -49,6 +49,21 @@ export const BLANK_SIGNUP: PilotSignup = {
    rejected write is something we caught here first. */
 export const LIMITS = { short: 120, long: 1200 };
 
+/** The category in the applicant's own words: what they typed when they chose
+    "Other", otherwise the class they picked. */
+export const resolveCategory = (f: PilotSignup) =>
+  (f.category === OTHER_CATEGORY ? f.categoryOther : f.category).trim();
+
+/** What the applicant carries into WhatsApp once they have registered. It
+    introduces them from what they just filled in, so the conversation opens
+    with us already knowing who is writing and what they sell — rather than
+    an anonymous "hello" we then have to match back to a row. */
+export function signupMessage(f: PilotSignup): string {
+  return `Hello Traqi, I'm ${f.firstName.trim()}, I own ${f.business.trim()}, `
+    + `${resolveCategory(f)} Business, from ${f.location.trim()}.\n`
+    + 'I just registered as an early user and would like to proceed to the next step.';
+}
+
 export const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
 /* Nigerian numbers arrive as 0803…, 234803… or +234 803 … — accept them all
    and let the digits decide. */
@@ -57,7 +72,7 @@ export const isPhone = (v: string) => /^[+\d][\d\s()-]{6,}$/.test(v.trim()) && v
 /** Records one applicant. Returns the id so a duplicate submit is visible in
     the console; throws on a rejected write, which the form reports. */
 export async function submitPilotSignup(f: PilotSignup): Promise<string> {
-  const category = f.category === OTHER_CATEGORY ? f.categoryOther.trim() : f.category;
+  const category = resolveCategory(f);
   const ref = await addDoc(collection(db, 'pilotSignups'), {
     firstName: f.firstName.trim(),
     surname: f.surname.trim(),

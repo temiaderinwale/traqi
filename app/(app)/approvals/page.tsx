@@ -29,7 +29,7 @@ export default function ApprovalsPage() {
 
   return (
     <>
-      <PageHead title="Approvals" sub="Sensitive actions waiting on your say-so" />
+      <PageHead sub="Sensitive actions waiting on your say-so" />
       {!pending.length && !history.length ? (
         <EmptyState icon={ShieldCheck} title="Nothing to approve" text="When assistants add products or restock, requests appear here." />
       ) : (

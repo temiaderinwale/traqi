@@ -43,7 +43,7 @@ export default function FinancialsPage() {
 
   return (
     <>
-      <PageHead title="Financial Report" sub={`January – December ${y} · all figures in ₦`}
+      <PageHead sub={`January – December ${y} · all figures in ₦`}
         actions={<>
           <button className="btn btn-secondary" onClick={() => window.print()}><FileDown />Print / PDF</button>
           <button className="btn btn-ghost" onClick={exportCSV}><TableIcon />Export CSV</button>

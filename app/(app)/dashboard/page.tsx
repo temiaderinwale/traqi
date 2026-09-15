@@ -68,7 +68,13 @@ export default function DashboardPage() {
     <>
       <div className="sec-head" style={{ marginBottom: 18 }}>
         <div>
-          <div className="page-h1">{greet}, {(user.name || 'there').split(' ')[0]} 👋{extra}</div>
+          {/* Only the name takes the gradient. Running it through the whole
+              line would swallow the emoji — background-clip:text paints right
+              over it, and it disappears. */}
+          <span className="head-rule" aria-hidden="true" />
+          <div className="page-h1">
+            {greet}, <span className="grad">{(user.name || 'there').split(' ')[0]}</span> 👋{extra}
+          </div>
           <div className="page-sub">{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
         </div>
         {can('record_sales') && <button className="btn btn-primary" onClick={() => setSaleOpen(true)}><Plus />New Sale</button>}

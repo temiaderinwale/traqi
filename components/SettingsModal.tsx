@@ -12,7 +12,7 @@ import { Modal, Field } from './ui';
 import { TierCards } from './TierSelect';
 
 export default function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { ws, isOwner, tier, changePlan, save, saveConfig, saveTargets, log, showToast, fbUser } = useTraqi();
+  const { ws, isOwner, tier, changePlan, save, saveConfig, saveTargets, log, showToast, fbUser, currency, setCurrency } = useTraqi();
   const [planOpen, setPlanOpen] = useState(false);
   const [picked, setPicked] = useState<TierKey>('starter');
   const [editBiz, setEditBiz] = useState(false);
@@ -195,6 +195,17 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
             <button className={'btn btn-sm ' + (dark ? 'btn-secondary' : 'btn-primary')} onClick={() => setTheme('light')}><Sun />Light</button>
             <button className={'btn btn-sm ' + (dark ? 'btn-primary' : 'btn-secondary')} onClick={() => setTheme('dark')}><Moon />Dark</button>
           </div>
+          {/* The topbar keeps its own currency switch on a desktop, where
+              there is room for it. On a phone that row is given over to the
+              page title, so this is where the setting lives. */}
+          <div className="label" style={{ margin: '16px 0 10px' }}>Currency</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className={'btn btn-sm ' + (currency === 'NGN' ? 'btn-primary' : 'btn-secondary')}
+              onClick={() => setCurrency('NGN')}>₦ NGN</button>
+            <button className={'btn btn-sm ' + (currency === 'USD' ? 'btn-primary' : 'btn-secondary')}
+              onClick={() => setCurrency('USD')}>$ USD</button>
+          </div>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14 }}>
             <input type="checkbox" id="soundToggle" style={{ width: 16, height: 16, accentColor: 'var(--indigo-600)' }}
               checked={!!ws.config.soundOn} onChange={e => saveConfig({ soundOn: e.target.checked })} />

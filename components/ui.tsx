@@ -4,13 +4,16 @@
 import React from 'react';
 import { LucideIcon, X } from 'lucide-react';
 
-export function PageHead({ title, sub, actions }: { title: string; sub?: string; actions?: React.ReactNode }) {
+/* The module's name is already the topbar heading, and every entry in NAV
+   carries the same wording this used to print — so a title here said it twice
+   on every page. What is left is the line that actually adds something (the
+   subtitle) and the page's actions. The dashboard is the exception and keeps
+   its own header, because "Good morning, …" is not the topbar's "Daily
+   Briefing" repeated. */
+export function PageHead({ sub, actions }: { sub?: string; actions?: React.ReactNode }) {
   return (
     <div className="sec-head" style={{ marginBottom: 18 }}>
-      <div>
-        <div className="page-h1">{title}</div>
-        {sub && <div className="page-sub">{sub}</div>}
-      </div>
+      {sub ? <div className="page-lede">{sub}</div> : <span />}
       {actions && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{actions}</div>}
     </div>
   );

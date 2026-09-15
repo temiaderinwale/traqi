@@ -35,7 +35,7 @@ export default function SalesPage() {
 
   return (
     <>
-      <PageHead title="Sales Log" sub={`${ws.sales.length} line item${ws.sales.length === 1 ? '' : 's'} recorded`}
+      <PageHead sub={`${ws.sales.length} line item${ws.sales.length === 1 ? '' : 's'} recorded`}
         actions={can('record_sales') ? <button className="btn btn-primary" onClick={() => { setEditId(null); setForm(true); }}><Plus />Record Sale</button> : null} />
       <div className="search-row">
         <input className="search-input" placeholder="Search customer or product…" value={q} onChange={e => setQ(e.target.value)} />

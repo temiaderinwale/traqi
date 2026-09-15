@@ -28,7 +28,7 @@ export default function DebtsPage() {
   };
   return (
     <>
-      <PageHead title="Debts & Credit" sub="Who owes what, and since when"
+      <PageHead sub="Who owes what, and since when"
         actions={<button className="btn btn-primary" onClick={() => { setEditing(null); setForm(true); }}><Plus />Add Debt</button>} />
       <KpiGrid>
         <Kpi icon={Hourglass} tone="amber" label="Outstanding" value={money(owed)} />

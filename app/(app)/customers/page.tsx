@@ -32,7 +32,7 @@ export default function CustomersPage() {
 
   return (
     <>
-      <PageHead title="Customers" sub={`${ws.customers.length} customer${ws.customers.length === 1 ? '' : 's'}`}
+      <PageHead sub={`${ws.customers.length} customer${ws.customers.length === 1 ? '' : 's'}`}
         actions={can('add_customers') ? <>
           <button className="btn btn-secondary" onClick={() => setImportOpen(true)}><Upload />Import CSV</button>
           <button className="btn btn-primary" onClick={() => { setEditing(null); setForm(true); }}><Plus />Add Customer</button>

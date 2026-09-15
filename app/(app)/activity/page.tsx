@@ -15,7 +15,7 @@ export default function ActivityPage() {
 
   return (
     <>
-      <PageHead title="Activity Log" sub="Everything that happened in this workspace" />
+      <PageHead sub="Everything that happened in this workspace" />
       <div className="search-row">
         <input className="search-input" placeholder="Filter by name or action…" value={q} onChange={e => setQ(e.target.value)} />
         <select value={who} onChange={e => setWho(e.target.value)}>

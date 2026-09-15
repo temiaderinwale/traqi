@@ -171,7 +171,29 @@ export const isIndustryKey = (v: unknown): v is IndustryKey =>
 export const getIndustry = (key: string | undefined): Industry | null =>
   INDUSTRIES.find(i => i.key === key) || null;
 
-/** The categories a workspace works with: its industry's list plus its own. */
+/* ---------- Anything the eight do not cover ----------
+   Deliberately not an entry in INDUSTRIES: it has no name and no category
+   list of its own to hard-code. The owner supplies both during the welcome —
+   they name the trade, and the categories they type become the workspace's
+   own, which is exactly what `extraCategories` already means. So
+   getIndustry('other') finds nothing, categoriesFor falls through to the
+   owner's list, and the rest of the app needs no special case. */
+export const OTHER_INDUSTRY = 'other';
+export type IndustryChoice = IndustryKey | typeof OTHER_INDUSTRY;
+
+export const isIndustryChoice = (v: unknown): v is IndustryChoice =>
+  v === OTHER_INDUSTRY || isIndustryKey(v);
+
+/** What to call this workspace's trade: the class it picked, or what the
+    owner typed when none of them fitted. */
+export function industryLabel(industry: string | undefined, custom = ''): string {
+  if (industry === OTHER_INDUSTRY) return custom.trim() || 'Other';
+  return getIndustry(industry)?.name || '';
+}
+
+/** The categories a workspace works with: its industry's list plus its own.
+    Under "Other" there is no list to start from, so the owner's own entries
+    are the whole of it. */
 export function categoriesFor(industry: string | undefined, extra: string[] = []): string[] {
   const base = getIndustry(industry)?.categories || [];
   const seen = new Set(base.map(c => c.toLowerCase()));

@@ -60,7 +60,7 @@ export default function MessagesPage() {
 
   return (
     <>
-      <PageHead title="Messages" sub="Talk to your team without leaving Traqi"
+      <PageHead sub="Talk to your team without leaving Traqi"
         actions={<button className="btn btn-primary" onClick={() => setForm(true)}><Plus />New Message</button>} />
       {live.length ? live.map(m => <Card key={m.id} m={m} />)
         : <EmptyState icon={MessagesSquare} title="No messages" text="Start a conversation with your team." />}

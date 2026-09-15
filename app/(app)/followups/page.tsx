@@ -43,7 +43,7 @@ export default function FollowUpsPage() {
 
   return (
     <>
-      <PageHead title="Follow-Up Tracker" sub="Auto-calculated from sales and product usage days" />
+      <PageHead sub="Auto-calculated from sales and product usage days" />
       <KpiGrid>
         <Kpi icon={AlertCircle} tone="red" label="Overdue" value={overdue.length} sub="Contact now" />
         <Kpi icon={BellRing} tone="amber" label="Due now" value={due.length} sub="Within 3 days" />

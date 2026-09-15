@@ -181,7 +181,11 @@ export default function HeroCarousel() {
           if (Math.abs(dx) > 45) go(i + (dx < 0 ? 1 : -1));
           touchX.current = null;
         }}>
-        <div className="absolute -inset-6 bg-indigo-100/60 dark:bg-indigo-500/10 rounded-[2.5rem] rotate-2" aria-hidden="true" />
+        {/* The tilt and the wider bleed only from sm up: at -inset-6 this
+            panel reaches 24px past the frame against a 16px page gutter, and
+            the rotation widens its box further again — which is what was
+            giving the landing page a sideways scroll on a phone. */}
+        <div className="absolute -inset-3 sm:-inset-6 bg-indigo-100/60 dark:bg-indigo-500/10 rounded-[2.5rem] sm:rotate-2" aria-hidden="true" />
 
         <div className="relative rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl overflow-hidden"
           role="group" aria-roledescription="carousel" aria-label="Traqi in use">

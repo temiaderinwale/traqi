@@ -19,7 +19,7 @@ export default function SuppliersPage() {
   };
   return (
     <>
-      <PageHead title="Suppliers" sub={`${ws.suppliers.length} vendor${ws.suppliers.length === 1 ? '' : 's'}`}
+      <PageHead sub={`${ws.suppliers.length} vendor${ws.suppliers.length === 1 ? '' : 's'}`}
         actions={<button className="btn btn-primary" onClick={() => { setEditing(null); setForm(true); }}><Plus />Add Supplier</button>} />
       {ws.suppliers.length ? (
         <TableWrap minWidth={560} head={<tr><th>Name</th><th>Phone</th><th>Products</th><th>Lead time</th><th /></tr>}>

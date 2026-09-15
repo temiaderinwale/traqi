@@ -30,7 +30,7 @@ export default function ProductsPage() {
 
   return (
     <>
-      <PageHead title="Products" sub={`${ws.products.length} product${ws.products.length === 1 ? '' : 's'} in your catalog`}
+      <PageHead sub={`${ws.products.length} product${ws.products.length === 1 ? '' : 's'} in your catalog`}
         actions={can('add_products') ? <>
           <button className="btn btn-secondary" onClick={() => setImportOpen(true)}><Upload />Import CSV</button>
           <button className="btn btn-primary" onClick={() => { setEditing(null); setForm(true); }}><Plus />Add Product</button>

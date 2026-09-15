@@ -18,7 +18,7 @@ export default function InventoryPage() {
   const low = inv.filter(i => i.status !== 'OK').length;
   return (
     <>
-      <PageHead title="Inventory" sub="Live stock across your catalog"
+      <PageHead sub="Live stock across your catalog"
         actions={can('restock') ? <button className="btn btn-primary" onClick={() => setForm(true)}><Plus />Restock</button> : null} />
       <KpiGrid>
         <Kpi icon={Boxes} label="Stock value" value={money(value)} />

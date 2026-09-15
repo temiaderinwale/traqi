@@ -21,7 +21,7 @@ export default function ReturnsPage() {
   };
   return (
     <>
-      <PageHead title="Returns & Refunds" sub="Track what came back and why"
+      <PageHead sub="Track what came back and why"
         actions={can('log_returns') ? <button className="btn btn-primary" onClick={() => setForm(true)}><Plus />Log Return</button> : null} />
       <KpiGrid>
         <Kpi icon={RotateCcw} tone="red" label="Total returns" value={ws.returns.length} />

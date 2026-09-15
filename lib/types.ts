@@ -1,6 +1,6 @@
 /* Traqi — domain types */
 import type { TierKey } from './tiers';
-import type { IndustryKey } from './industries';
+import type { IndustryChoice } from './industries';
 
 export type Product = {
   id: string; name: string; cat: string; size: string;
@@ -88,7 +88,10 @@ export type Config = {
   planChosenAt: string;
   /* What kind of business this is — it decides the product categories the
      workspace works with. Chosen once, after the plan, before onboarding. */
-  industry: IndustryKey | '';
+  industry: IndustryChoice | '';
+  /* Only set under "Other": what the owner called their trade, since there is
+     no entry in INDUSTRIES to read a name from. */
+  customIndustry: string;
   extraCategories: string[];
 };
 
@@ -114,7 +117,7 @@ export const COLLECTIONS: CollectionKey[] = [
 export const DEFAULT_CONFIG: Config = {
   bizName: '', ownerName: 'Owner', email: '', pin: '1234',
   onboarded: false, soundOn: false, receiptCounter: 0, plan: '', planChosenAt: '',
-  industry: '', extraCategories: []
+  industry: '', customIndustry: '', extraCategories: []
 };
 
 export const emptyWorkspace = (): Workspace => ({

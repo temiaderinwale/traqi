@@ -16,7 +16,7 @@ import {
 } from './types';
 import { can, requiresApproval } from './compute';
 import { FeatureKey, Tier, TierKey, customerLimit, getTier, tierHas } from './tiers';
-import { IndustryKey, categoriesFor } from './industries';
+import { IndustryChoice, OTHER_INDUSTRY, categoriesFor } from './industries';
 import {
   AssistantLink, acceptInvite, createAssistantLink, getAssistantLink, getInvite, notifyOwnerOfJoin
 } from './invites';
@@ -60,9 +60,9 @@ type Ctx = {
   choosePlan: (plan: TierKey) => void;
   changePlan: (plan: TierKey) => void;
   /* ---- what kind of business this is ---- */
-  industry: IndustryKey | '';
+  industry: IndustryChoice | '';
   categories: string[];
-  chooseIndustry: (key: IndustryKey) => void;
+  chooseIndustry: (key: IndustryChoice, custom?: { name: string; categories: string[] }) => void;
   addCategory: (name: string) => string;
   /* True when this session is an assistant signed in with their own account
      rather than the owner's. They hold one seat and cannot switch out of it. */
@@ -646,8 +646,29 @@ export function TraqiProvider({ children }: { children: React.ReactNode }) {
   }, [writePlan]);
 
   /* ---------- What kind of business this is ---------- */
-  const chooseIndustry = useCallback((industry: IndustryKey) => {
-    saveConfig({ industry });
+  /* One of the eight classes brings its own category list with it. "Other"
+     brings none, so the owner names the trade and types the categories, and
+     those become the workspace's own — which is to say the ones Add Product
+     offers from here on. Kept in the order they were entered; blanks and
+     repeats dropped. */
+  const chooseIndustry = useCallback((
+    industry: IndustryChoice,
+    custom?: { name: string; categories: string[] }
+  ) => {
+    if (industry === OTHER_INDUSTRY) {
+      const seen = new Set<string>();
+      const categories: string[] = [];
+      (custom?.categories || []).forEach(raw => {
+        const clean = raw.trim().replace(/\s+/g, ' ');
+        const key = clean.toLowerCase();
+        if (!clean || seen.has(key)) return;
+        seen.add(key);
+        categories.push(clean);
+      });
+      saveConfig({ industry, customIndustry: (custom?.name || '').trim(), extraCategories: categories });
+    } else {
+      saveConfig({ industry, customIndustry: '' });
+    }
     setStage(wsRef.current.config.onboarded ? 'pin' : 'onboarding');
   }, [saveConfig]);
 
