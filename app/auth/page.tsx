@@ -212,7 +212,12 @@ export default function AuthPage() {
 
       <main className="auth-right">
         <div className="auth-card">
-          <h2 className="font-display" style={{ fontSize: '1.7rem', fontWeight: 800, margin: 0 }}>Welcome to Traqi</h2>
+          {/* The way back to the marketing site. The brand lockup in the left
+              panel is the other one, but that panel is hidden below 1024px —
+              on a phone this heading is the only route home. */}
+          <h2 className="font-display" style={{ fontSize: '1.7rem', fontWeight: 800, margin: 0 }}>
+            <Link href="/" className="auth-home" title="Back to the Traqi home page">Welcome to Traqi</Link>
+          </h2>
           <p className="hint" style={{ marginTop: 6 }}>Sign in to your workspace, or create a new one.</p>
 
           <div className="auth-tabs">

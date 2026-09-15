@@ -238,10 +238,13 @@ service cloud.firestore {
         && longText(request.resource.data.about, 1)
         && request.resource.data.status == 'new'
         && request.resource.data.source == 'pilot';
-      /* Triage only: an admin moves an applicant through the pipeline and
-         leaves a note. What the applicant wrote is never edited. */
+      /* Triage only: an admin moves an applicant through the pipeline, leaves
+         a note, or files the record away in the archive. What the applicant
+         wrote is never edited — archiving takes a record off the working list
+         without touching a word of it. */
       allow update: if isAdmin() && changedKeys()
-        .hasOnly(['status', 'adminNote', 'reviewedAt', 'reviewedBy']);
+        .hasOnly(['status', 'adminNote', 'reviewedAt', 'reviewedBy',
+                  'archived', 'archivedAt', 'archivedBy']);
       allow delete: if isSuper();
     }
 

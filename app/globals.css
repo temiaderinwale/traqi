@@ -576,10 +576,6 @@ body.auth-mode .app-wrap,body.auth-mode .mob-nav,body.auth-mode .fab,body.auth-m
 /* ---------- Product admin console (/admin) ---------- */
 /* The console navigates by module, so its sidebar is the only nav — below the
    sidebar breakpoint the same list drops out of the topbar instead. */
-.adm-menu{display:grid}
-@media(min-width:1024px){.adm-menu{display:none}}
-.adm-drawer{border-bottom:1px solid var(--border);background:var(--indigo-950);padding:6px 14px 12px}
-.adm-drawer .nav-sec{padding-top:10px}
 
 /* ---------- Tier cards (plan picker) ---------- */
 .tier-card{transition:border-color .18s,box-shadow .18s,transform .18s var(--ease)}
@@ -777,3 +773,8 @@ body.auth-mode .app-wrap,body.auth-mode .mob-nav,body.auth-mode .fab,body.auth-m
 @media (prefers-reduced-motion: reduce){
   .kenburns,.pilot-pop,.pilot-halo,.pilot-nudge{animation:none}
 }
+
+/* The auth screen's heading doubles as the way back to the marketing site —
+   on a phone it is the only one, since the branded left panel is hidden. */
+.auth-home{display:inline-block;transition:color .18s var(--ease)}
+.auth-home:hover{color:var(--indigo-600)}

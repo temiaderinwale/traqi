@@ -221,7 +221,10 @@ export function readPilotSignup(id: string, d: Record<string, any>): PilotSignup
     reviewedBy: str(d.reviewedBy),
     /* serverTimestamp() resolves a beat after the write, so a record read in
        that window has no date yet — show it as the newest, not as 1970. */
-    createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : str(d.createdAt)
+    createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : str(d.createdAt),
+    archived: d.archived === true,
+    archivedAt: str(d.archivedAt),
+    archivedBy: str(d.archivedBy)
   };
 }
 
@@ -239,6 +242,17 @@ export async function setPilotStatus(id: string, status: PilotStatus, by: string
 }
 export async function setPilotNote(id: string, adminNote: string) {
   await updateDoc(doc(adminDb, C.pilot, id), { adminNote });
+}
+
+/** Moves a record to the archive, or brings it back. Nothing is destroyed —
+    an application is somebody's details and a record of them asking, so it
+    leaves the working list rather than the database. */
+export async function setPilotArchived(id: string, archived: boolean, by: string) {
+  await updateDoc(doc(adminDb, C.pilot, id), {
+    archived,
+    archivedAt: archived ? new Date().toISOString() : '',
+    archivedBy: archived ? by : ''
+  });
 }
 
 /* ---------- Audience selection ---------- */

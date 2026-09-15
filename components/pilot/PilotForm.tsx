@@ -7,8 +7,8 @@
    conversation — which is the actual point of the exercise. Nobody reaches
    the product from here; we let people in by hand, after we have spoken. */
 
-import { useRef, useState } from 'react';
-import { AlertCircle, CheckCircle2, Loader2, PartyPopper, Send, SendHorizontal } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { AlertCircle, CheckCircle2, Loader2, PartyPopper, Send } from 'lucide-react';
 import {
   BLANK_SIGNUP, BUSINESS_CATEGORIES, LIMITS, OTHER_CATEGORY, WHATSAPP_DISPLAY,
   isEmail, isPhone, signupMessage, submitPilotSignup, whatsappLink, type PilotSignup
@@ -66,11 +66,22 @@ function Done({ f }: { f: PilotSignup }) {
        the form it replaced, so left alone it would sit in the top corner of a
        lot of empty white. */
     <div className="pilot-pop flex min-h-full flex-col items-center justify-center text-center">
-      {/* The same gold-through-purple run as the button below it, turned on
-          the diagonal so the two read as a pair rather than a repeat. */}
-      <span className="grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-amber-400 via-orange-500 to-indigo-600 shadow-lg shadow-orange-500/25">
-        <PartyPopper className="h-8 w-8 text-white" />
-      </span>
+      {/* No panel behind it — the colour is in the drawn lines themselves, so
+          the mark reads as an illustration rather than a second button. A
+          Lucide icon strokes in currentColor, which cannot hold a gradient;
+          pointing `stroke` at an SVG paint server is what lets it. The def
+          below carries no size and paints nothing on its own. */}
+      <svg width="0" height="0" aria-hidden="true" focusable="false" className="absolute">
+        <defs>
+          <linearGradient id="pilot-pop-grad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#F59E0B" />
+            <stop offset="34%" stopColor="#EC4899" />
+            <stop offset="68%" stopColor="#8B5CF6" />
+            <stop offset="100%" stopColor="#4F46E5" />
+          </linearGradient>
+        </defs>
+      </svg>
+      <PartyPopper className="h-14 w-14" strokeWidth={1.75} style={{ stroke: 'url(#pilot-pop-grad)' }} />
 
       <h3 className="mt-5 font-display text-2xl font-extrabold text-balance sm:text-3xl">
         You are now on the list
@@ -91,7 +102,7 @@ function Done({ f }: { f: PilotSignup }) {
               icon, so the mark grows and shrinks with the label instead of
               needing its own matching set of sizes. */}
           <span className="wa-cta-inner">
-            <SendHorizontal className="wa-cta-icon" />
+            <Send className="wa-cta-icon" />
             <span className="whitespace-nowrap">Click here for next step</span>
           </span>
         </a>
@@ -138,13 +149,45 @@ export default function PilotForm() {
     try {
       await submitPilotSignup(f);
       setDone(true);
-      card.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     } catch {
       setFailed('We could not save your details just now. Please check your connection and try again.');
     } finally {
       setBusy(false);
     }
   };
+
+  /* Bring the answer into view the moment it exists.
+
+     It has to wait for the paint: the scroll is measured against the panel,
+     and until React has swapped the form out the card is still form-height,
+     so anything measured before then aims at the wrong place.
+
+     On a phone the carousel is pinned across the top, so the target is the
+     first clear pixel underneath it — which puts the picture and the whole
+     reply on screen together rather than one behind the other. Its pinned
+     position is used rather than where it happens to sit right now, because
+     the scroll we are about to make is what pins it. A desktop has nothing
+     overhead, and the card there scrolls its own contents, so it is also
+     wound back to the top. */
+  useEffect(() => {
+    if (!done) return;
+    const el = card.current;
+    if (!el) return;
+
+    const frame = requestAnimationFrame(() => {
+      (el.firstElementChild as HTMLElement | null)?.scrollTo?.({ top: 0 });
+
+      const carousel = document.querySelector('[aria-roledescription="carousel"]');
+      const root = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      const overhead = carousel && window.innerWidth < 1024
+        ? 5.25 * root + carousel.getBoundingClientRect().height
+        : 0;
+
+      const top = el.getBoundingClientRect().top + window.scrollY - overhead - 12;
+      window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [done]);
 
   const invalid = (k: keyof PilotSignup) => ({
     'data-invalid': errors[k] ? 'true' : undefined,

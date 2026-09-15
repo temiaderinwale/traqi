@@ -9,12 +9,12 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Check, FileDown, Mail, MessageCircle, Rocket, Search, Sparkles
+  Archive, Check, FileDown, Mail, MessageCircle, Rocket, RotateCcw, Search, Sparkles, Trash2
 } from 'lucide-react';
 import { Badge, Card, Kpi, KpiGrid, Modal, TableWrap } from '@/components/ui';
 import { useAdmin } from '@/lib/adminStore';
 import {
-  downloadCsv, fetchPilotSignups, setPilotNote, setPilotStatus
+  downloadCsv, fetchPilotSignups, setPilotArchived, setPilotNote, setPilotStatus
 } from '@/lib/adminData';
 import {
   PILOT_LABEL, PILOT_STATUSES, PilotSignupRecord, PilotStatus
@@ -35,7 +35,7 @@ const reply = (r: PilotSignupRecord) =>
   + 'We would love to set you up — when is a good time to talk?';
 
 export default function PilotSignups() {
-  const { logAudit, me, isSuper } = useAdmin();
+  const { logAudit, me } = useAdmin();
   const [copied, setCopied] = useState('');
   const copyTimer = useRef<number>();
   const [rows, setRows] = useState<PilotSignupRecord[]>([]);
@@ -47,6 +47,9 @@ export default function PilotSignups() {
   const [open, setOpen] = useState<PilotSignupRecord | null>(null);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
+  /* Which of the two lists is on screen. The archive is the same collection,
+     filtered — not a second place records can go missing in. */
+  const [view, setView] = useState<'active' | 'archive'>('active');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -62,22 +65,27 @@ export default function PilotSignups() {
 
   useEffect(() => { load(); }, [load]);
 
+  /* The tiles describe the working queue, so an archived record counts for
+     nothing in them — it has already been dealt with one way or another. */
   const tally = useMemo(() => {
     const t = { new: 0, contacted: 0, approved: 0, declined: 0 } as Record<PilotStatus, number>;
-    rows.forEach(r => { t[r.status]++; });
+    rows.filter(r => !r.archived).forEach(r => { t[r.status]++; });
     return t;
   }, [rows]);
+
+  const archivedCount = useMemo(() => rows.filter(r => r.archived).length, [rows]);
 
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase();
     const filtered = rows.filter(r => {
+      if (r.archived !== (view === 'archive')) return false;
       if (status && r.status !== status) return false;
       if (!needle) return true;
       return [r.firstName, r.surname, r.business, r.category, r.location, r.email, r.whatsapp]
         .some(v => v.toLowerCase().includes(needle));
     });
     return sortRows(filtered, sort);
-  }, [rows, q, status, sort]);
+  }, [rows, q, status, sort, view]);
 
   /* Both writes patch the row in place rather than re-reading the collection:
      the console is a queue, and losing your scroll position after every
@@ -112,6 +120,26 @@ export default function PilotSignups() {
 
   const openRow = (r: PilotSignupRecord) => { setOpen(r); setNote(r.adminNote || ''); };
 
+  /* Delete here means "take it off my list", not "destroy it" — the details
+     are somebody's, and a record of them asking to join. So it asks once,
+     then files it in the archive, where it can be brought back. */
+  const archive = async (r: PilotSignupRecord, next: boolean) => {
+    if (next && !window.confirm(
+      `Remove ${r.firstName} ${r.surname} from the list?\n\n`
+      + 'The application moves to the archive — nothing is deleted, and you can restore it.'
+    )) return;
+    setBusy(true);
+    try {
+      const by = me?.username || me?.email || '';
+      await setPilotArchived(r.id, next, by);
+      patch(r.id, { archived: next, archivedAt: next ? new Date().toISOString() : '', archivedBy: next ? by : '' });
+      if (open?.id === r.id) setOpen(null);
+      await logAudit(next ? 'pilot_archived' : 'pilot_restored', `${r.firstName} ${r.surname} · ${r.business}`);
+    } catch {
+      setError(next ? 'Could not archive that application.' : 'Could not restore that application.');
+    } finally { setBusy(false); }
+  };
+
   /* Clipboard writes need a secure context, which the deployed console has and
      a plain-http origin does not — so the failure is reported rather than
      swallowed, otherwise nothing happens and it looks like a dead click. */
@@ -144,7 +172,7 @@ export default function PilotSignups() {
   return (
     <>
       <KpiGrid>
-        <Kpi icon={Sparkles} label="Applications" value={count(rows.length)} sub="from the pilot page" />
+        <Kpi icon={Sparkles} label="Applications" value={count(rows.length - archivedCount)} sub="on the list" />
         <Kpi icon={Rocket} tone="amber" label="Waiting on us" value={count(tally.new)} sub="nobody has replied yet" />
         <Kpi icon={MessageCircle} label="Contacted" value={count(tally.contacted)} sub="conversation started" />
         <Kpi icon={Mail} tone="green" label="Approved" value={count(tally.approved)} sub="onboarded as early users" />
@@ -167,7 +195,13 @@ export default function PilotSignups() {
           {PILOT_STATUSES.map(s => <option key={s} value={s}>{PILOT_LABEL[s]}</option>)}
         </select>
         <button className="btn btn-secondary btn-sm" onClick={load}>Refresh</button>
-        <button className="btn btn-secondary btn-sm" onClick={() => downloadCsv('traqi_pilot_applications.csv', [
+        {/* The archive is only ever on screen because it was asked for. */}
+        <button className={'btn btn-sm ' + (view === 'archive' ? 'btn-primary' : 'btn-secondary')}
+          onClick={() => setView(v => (v === 'archive' ? 'active' : 'archive'))}>
+          <Archive />{view === 'archive' ? 'Back to the list' : `Archive${archivedCount ? ` (${archivedCount})` : ''}`}
+        </button>
+        <button className="btn btn-secondary btn-sm" onClick={() => downloadCsv(
+          view === 'archive' ? 'traqi_pilot_archive.csv' : 'traqi_pilot_applications.csv', [
           ['Applied', 'First name', 'Surname', 'Business', 'Category', 'Category group', 'Location', 'Email', 'WhatsApp', 'About', 'Status', 'Note'],
           ...shown.map(r => [
             r.createdAt, r.firstName, r.surname, r.business, r.category, r.categoryGroup,
@@ -189,6 +223,7 @@ export default function PilotSignups() {
             <Th label="WhatsApp" k="whatsapp" sort={sort} setSort={setSort} />
             <Th label="Email" k="email" sort={sort} setSort={setSort} />
             <th style={{ textAlign: 'right' }}>Reach out</th>
+            <th style={{ textAlign: 'right', width: 1 }} aria-label={view === 'archive' ? 'Restore' : 'Remove'} />
           </tr>
         }>
           {shown.map(r => (
@@ -212,13 +247,23 @@ export default function PilotSignups() {
                   <Mail />
                 </a>
               </td>
+              <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
+                <button className={'btn btn-sm ' + (view === 'archive' ? 'btn-secondary' : 'btn-danger')}
+                  disabled={busy} onClick={() => archive(r, view !== 'archive')}
+                  title={view === 'archive' ? `Restore ${r.firstName} to the list` : `Remove ${r.firstName} from the list`}
+                  aria-label={view === 'archive' ? `Restore ${r.firstName}` : `Remove ${r.firstName}`}>
+                  {view === 'archive' ? <RotateCcw /> : <Trash2 />}
+                </button>
+              </td>
             </tr>
           ))}
           {!shown.length && (
-            <tr><td colSpan={9} className="hint" style={{ textAlign: 'center', padding: 26 }}>
-              {rows.length
-                ? 'No application matches that search.'
-                : 'No applications yet. They arrive here the moment somebody fills in the form on /pilot.'}
+            <tr><td colSpan={10} className="hint" style={{ textAlign: 'center', padding: 26 }}>
+              {view === 'archive'
+                ? 'The archive is empty. Anything you remove from the list lands here.'
+                : rows.length
+                  ? 'No application matches that search.'
+                  : 'No applications yet. They arrive here the moment somebody fills in the form on /pilot.'}
             </td></tr>
           )}
         </TableWrap>
@@ -280,7 +325,18 @@ export default function PilotSignups() {
               <span className="hint">Only admins see this. The applicant never does.</span>
             </div>
 
-            {!isSuper && <span className="hint">Applications are kept on file; only the console owner can delete one.</span>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+              borderTop: '1px solid var(--divider)', paddingTop: 14 }}>
+              <button className={'btn btn-sm ' + (open.archived ? 'btn-secondary' : 'btn-danger')}
+                disabled={busy} onClick={() => archive(open, !open.archived)}>
+                {open.archived ? <><RotateCcw />Restore to the list</> : <><Trash2 />Remove from the list</>}
+              </button>
+              <span className="hint">
+                {open.archived
+                  ? `Archived ${shortDate(open.archivedAt)}${open.archivedBy ? ' by ' + open.archivedBy : ''}.`
+                  : 'Removing files it in the archive. Nothing is deleted.'}
+              </span>
+            </div>
           </div>
         )}
       </Modal>

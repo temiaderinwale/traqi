@@ -19,7 +19,8 @@ const LABEL: Record<string, string> = {
   unsubscribe_remove: 'Unsubscribe removed',
   pilot_new: 'Pilot applicant reopened', pilot_contacted: 'Pilot applicant contacted',
   pilot_approved: 'Pilot applicant approved', pilot_declined: 'Pilot applicant declined',
-  pilot_note: 'Pilot note saved'
+  pilot_note: 'Pilot note saved',
+  pilot_archived: 'Pilot applicant archived', pilot_restored: 'Pilot applicant restored'
 };
 
 const TONE = (a: string) =>

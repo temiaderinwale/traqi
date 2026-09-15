@@ -161,6 +161,12 @@ export type PilotSignupRecord = {
   reviewedAt: string;
   reviewedBy: string;
   createdAt: string;             // ISO, from the server timestamp
+  /* Taken off the working list without being destroyed. The record keeps its
+     status and everything the applicant wrote; it simply moves to the
+     archive, and can be put back. */
+  archived: boolean;
+  archivedAt: string;
+  archivedBy: string;
 };
 
 /* ---------- Admin audit ---------- */

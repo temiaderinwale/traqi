@@ -31,21 +31,24 @@ type ModuleKey =
   | 'people' | 'pilot' | 'newsletters' | 'team' | 'audit' | 'system';
 
 const MODULES: {
-  key: ModuleKey; title: string; sub: string; icon: any; group: string;
+  key: ModuleKey; title: string; short: string; sub: string; icon: any; group: string;
   badge?: 'pending'; Body: React.ComponentType;
 }[] = [
-  { key: 'overview', title: 'Platform Overview', sub: 'Businesses, volume and money processed at a glance', icon: LayoutDashboard, group: 'Platform', Body: Overview },
-  { key: 'businesses', title: 'Businesses', sub: 'Every workspace on Traqi, searchable and sortable', icon: Building2, group: 'Platform', Body: Businesses },
-  { key: 'transactions', title: 'Transactions & Volume', sub: 'What moves through Traqi, month by month', icon: BarChart3, group: 'Platform', Body: Transactions },
-  { key: 'subscriptions', title: 'Plans & Subscriptions', sub: 'Plan mix, trials and recurring revenue', icon: CreditCard, group: 'Revenue', Body: Subscriptions },
-  { key: 'people', title: 'Users & Teams', sub: 'Owners, assistants and the setup funnel', icon: Users, group: 'Revenue', Body: People },
-  { key: 'pilot', title: 'Pilot Applications', sub: 'Early users who applied through the pilot page', icon: Rocket, group: 'Engagement', Body: PilotSignups },
-  { key: 'newsletters', title: 'Newsletters', sub: 'Compose, segment and send to business owners', icon: Mail, group: 'Engagement', Body: Newsletters },
-  { key: 'team', title: 'Admin Team', sub: 'Access requests and the admin roster', icon: ShieldCheck, group: 'Console', badge: 'pending', Body: AdminTeam },
-  { key: 'audit', title: 'Audit Log', sub: 'Every privileged action taken in this console', icon: Activity, group: 'Console', Body: AuditLog },
-  { key: 'system', title: 'Data & System', sub: 'Health checks, exports and platform hygiene', icon: Server, group: 'Console', Body: System }
+  { key: 'overview', title: 'Platform Overview', short: 'Overview', sub: 'Businesses, volume and money processed at a glance', icon: LayoutDashboard, group: 'Platform', Body: Overview },
+  { key: 'businesses', title: 'Businesses', short: 'Business', sub: 'Every workspace on Traqi, searchable and sortable', icon: Building2, group: 'Platform', Body: Businesses },
+  { key: 'transactions', title: 'Transactions & Volume', short: 'Volume', sub: 'What moves through Traqi, month by month', icon: BarChart3, group: 'Platform', Body: Transactions },
+  { key: 'subscriptions', title: 'Plans & Subscriptions', short: 'Plans', sub: 'Plan mix, trials and recurring revenue', icon: CreditCard, group: 'Revenue', Body: Subscriptions },
+  { key: 'people', title: 'Users & Teams', short: 'People', sub: 'Owners, assistants and the setup funnel', icon: Users, group: 'Revenue', Body: People },
+  { key: 'pilot', title: 'Pilot Applications', short: 'Pilot', sub: 'Early users who applied through the pilot page', icon: Rocket, group: 'Engagement', Body: PilotSignups },
+  { key: 'newsletters', title: 'Newsletters', short: 'Mail', sub: 'Compose, segment and send to business owners', icon: Mail, group: 'Engagement', Body: Newsletters },
+  { key: 'team', title: 'Admin Team', short: 'Admins', sub: 'Access requests and the admin roster', icon: ShieldCheck, group: 'Console', badge: 'pending', Body: AdminTeam },
+  { key: 'audit', title: 'Audit Log', short: 'Audit', sub: 'Every privileged action taken in this console', icon: Activity, group: 'Console', Body: AuditLog },
+  { key: 'system', title: 'Data & System', short: 'System', sub: 'Health checks, exports and platform hygiene', icon: Server, group: 'Console', Body: System }
 ];
 const GROUPS = ['Platform', 'Revenue', 'Engagement', 'Console'];
+/* The four that earn a permanent place in the phone's bottom bar; everything
+   else lives one tap away under More, exactly as the business app does it. */
+const QUICK: ModuleKey[] = ['overview', 'businesses', 'audit', 'pilot'];
 
 export default function AdminShell() {
   const { me, isSuper, pendingCount, logout } = useAdmin();
@@ -111,15 +114,19 @@ export default function AdminShell() {
         </div>
       </aside>
 
+      {/* Same chrome as the business app: one gradient title on a rich band,
+          the controls to its right, and — on a phone — a bottom bar with the
+          module sheet nested inside it. The console used to drop a panel down
+          from the topbar instead, which was the one place the two products
+          did not look like the same product. */}
       <div className="main">
         <header className="topbar"><div className="topbar-inner">
-          <button className="icon-btn adm-menu" onClick={() => setDrawer(d => !d)} aria-label="Modules"><Menu /></button>
-          <div style={{ minWidth: 0 }}>
-            <h1 className="font-display" style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0 }}>{current.title}</h1>
-            <p className="hint" style={{ margin: 0, fontSize: '.7rem' }}>{current.sub}</p>
-          </div>
+          <h1 className="topbar-title font-display"><span className="grad">{current.title}</span></h1>
+          <p className="hint topbar-extra" style={{ margin: 0, fontSize: '.7rem', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {current.sub}
+          </p>
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span className="badge badge-slate" style={{ whiteSpace: 'nowrap' }}>
+            <span className="badge badge-slate topbar-extra" style={{ whiteSpace: 'nowrap' }}>
               {loading ? 'reading…' : metrics ? 'data ' + since(metrics.fetchedAt) : 'no data'}
             </span>
             <button className="icon-btn" onClick={refresh} aria-label="Refresh data"><RefreshCw /></button>
@@ -127,12 +134,60 @@ export default function AdminShell() {
           </div>
         </div></header>
 
-        {drawer && (
-          <div className="adm-drawer"><NavRows onPick={() => setDrawer(false)} /></div>
-        )}
-
         <div className="content"><Body /></div>
       </div>
+
+      <nav className="mob-nav">
+        {drawer && (
+          <div className="mob-drawer open">
+            {GROUPS.map(g => {
+              const items = MODULES.filter(m => m.group === g && !QUICK.includes(m.key));
+              if (!items.length) return null;
+              return (
+                <div className="mob-group" key={g}>
+                  <button className="mob-group-head"><ChevronDown className="caret" /><span>{g}</span></button>
+                  <div className="mob-group-body">
+                    {items.map(m => {
+                      const Icon = m.icon;
+                      const badge = m.badge === 'pending' ? pendingCount : 0;
+                      return (
+                        <button key={m.key} className="mob-sub"
+                          onClick={() => { setActive(m.key); setDrawer(false); }}>
+                          <Icon />{m.short}{!!badge && <span className="nav-badge amber" style={{ marginLeft: 4 }}>{badge}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+            <div className="mob-group">
+              <button className="mob-group-head"><ChevronDown className="caret" /><span>Account</span></button>
+              <div className="mob-group-body">
+                <button className="mob-sub" onClick={refresh}><RefreshCw />Refresh</button>
+                <button className="mob-sub" onClick={toggle}>{dark ? <Sun /> : <Moon />}Theme</button>
+                <button className="mob-sub" onClick={logout}><LogOut />Sign Out</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="mob-nav-row">
+          {QUICK.map(k => {
+            const m = MODULES.find(x => x.key === k)!;
+            const Icon = m.icon;
+            return (
+              <button key={k} className={'mob-item' + (active === k ? ' active' : '')}
+                onClick={() => { setActive(k); setDrawer(false); }}>
+                <Icon />{m.short}
+              </button>
+            );
+          })}
+          <button className="mob-item" onClick={() => setDrawer(d => !d)}>
+            <Menu />More{!!pendingCount && <span className="nav-badge amber" style={{ marginLeft: 4 }}>{pendingCount}</span>}
+          </button>
+        </div>
+      </nav>
     </div>
   );
 }
