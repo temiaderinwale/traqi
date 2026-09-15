@@ -60,7 +60,7 @@ export function ProductForm({ open, onClose, editing }: FormProps<Product>) {
         <Field label="Category *">
           <CategorySelect value={f.cat} onChange={cat => setF((p: any) => ({ ...p, cat }))} />
         </Field>
-        <Field label="Size"><input value={f.size} onChange={set('size')} placeholder="50ml" /></Field>
+        <Field label="Size/Model/Colour"><input value={f.size} onChange={set('size')} placeholder="50ml" /></Field>
         <Field label="Cost price (₦) *"><input type="number" value={f.cost} onChange={set('cost')} placeholder="3500" /></Field>
         <Field label="Selling price (₦) *"><input type="number" value={f.price} onChange={set('price')} placeholder="8500" /></Field>
         <Field label="Usage days *" hint="Drives follow-up dates"><input type="number" value={f.usageDays} onChange={set('usageDays')} placeholder="30" /></Field>

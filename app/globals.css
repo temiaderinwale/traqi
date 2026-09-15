@@ -619,10 +619,15 @@ body.auth-mode .app-wrap,body.auth-mode .mob-nav,body.auth-mode .fab,body.auth-m
 @keyframes wlPulse{0%,100%{opacity:.35}50%{opacity:.8}}
 
 /* ---------- Welcome: choosing the business ---------- */
-.wl-choose{position:fixed;inset:0;z-index:900;overflow-y:auto;background:var(--bg);
+/* The page is a column: the scroll area takes the height, the footer sits
+   under it as a plain flex child. A position:fixed footer inside this fixed,
+   scrolling, animated layer is unreliable on mobile browsers — it can ride
+   along with the content — so the footer never scrolls by construction. */
+.wl-choose{position:fixed;inset:0;z-index:900;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);
   animation:wlFade .45s var(--ease) both}
 @keyframes wlFade{from{opacity:0;transform:scale(.99)}to{opacity:1;transform:none}}
-.wl-choose-inner{max-width:1040px;margin:0 auto;padding:40px 20px 120px}
+.wl-scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.wl-choose-inner{max-width:1040px;margin:0 auto;padding:40px 20px 32px}
 .wl-head{text-align:center;margin-bottom:30px}
 .wl-h2{font-size:clamp(1.4rem,3.4vw,2.1rem);font-weight:800;margin:18px 0 8px;letter-spacing:-.02em}
 .wl-lede{max-width:34rem;margin:0 auto;line-height:1.6}
@@ -644,8 +649,9 @@ body.auth-mode .app-wrap,body.auth-mode .mob-nav,body.auth-mode .fab,body.auth-m
   background:var(--indigo-600);color:#fff;opacity:0;transform:scale(.6);transition:opacity .2s,transform .2s var(--ease)}
 .wl-tick svg{width:14px;height:14px}
 .wl-card.on .wl-tick{opacity:1;transform:none}
-.wl-foot{position:fixed;left:0;right:0;bottom:0;background:color-mix(in srgb,var(--surface) 92%,transparent);
-  backdrop-filter:blur(10px);border-top:1px solid var(--border);padding:14px 20px;
+.wl-foot{flex-shrink:0;position:relative;z-index:1;background:color-mix(in srgb,var(--surface) 92%,transparent);
+  backdrop-filter:blur(10px);border-top:1px solid var(--border);
+  padding:14px 20px calc(14px + env(safe-area-inset-bottom));
   display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
 
 /* ---------- Welcome: naming a trade of your own ("Other") ---------- */
