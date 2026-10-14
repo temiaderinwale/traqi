@@ -12,7 +12,7 @@ import {
   loadCreds, saveCreds, redactSecrets, clearInlineSecrets
 } from './firebase';
 import {
-  Workspace, CollectionKey, COLLECTIONS, DEFAULT_CONFIG, emptyWorkspace, CurrentUser, Config
+  Workspace, CollectionKey, COLLECTIONS, CUSTOMER_SOURCES, CUSTOMER_TYPES, DEFAULT_CONFIG, emptyWorkspace, CurrentUser, Config
 } from './types';
 import { can, requiresApproval } from './compute';
 import { FeatureKey, Tier, TierKey, customerLimit, getTier, tierHas } from './tiers';
@@ -64,6 +64,10 @@ type Ctx = {
   categories: string[];
   chooseIndustry: (key: IndustryChoice, custom?: { name: string; categories: string[] }) => void;
   addCategory: (name: string) => string;
+  customerTypes: string[];
+  addCustomerType: (name: string) => string;
+  customerSources: string[];
+  addCustomerSource: (name: string) => string;
   /* True when this session is an assistant signed in with their own account
      rather than the owner's. They hold one seat and cannot switch out of it. */
   linkedAssistant: boolean;
@@ -87,6 +91,19 @@ type Ctx = {
 };
 
 const TraqiContext = createContext<Ctx | null>(null);
+
+/** Joins option lists in order, dropping blanks and repeats under any casing. */
+function ownOptions(...lists: (string[] | undefined)[]) {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  lists.forEach(list => (list || []).forEach(t => {
+    const key = (t || '').toLowerCase();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push(t);
+  }));
+  return out;
+}
 export const useTraqi = () => {
   const c = useContext(TraqiContext);
   if (!c) throw new Error('useTraqi must be used inside <TraqiProvider>');
@@ -684,6 +701,19 @@ export function TraqiProvider({ children }: { children: React.ReactNode }) {
     return clean;
   }, [saveConfig]);
 
+  /** Adds a customer type or source to this workspace's own list; returns the stored name. */
+  const addOwnOption = useCallback((field: 'customerTypes' | 'customerSources', builtIn: string[], name: string) => {
+    const clean = name.trim().replace(/\s+/g, ' ');
+    if (!clean) return '';
+    const own = wsRef.current.config[field] || [];
+    const match = [...builtIn, ...own].find(t => t.toLowerCase() === clean.toLowerCase());
+    if (match) return match;                       // already there, under any casing
+    saveConfig({ [field]: [clean, ...own] });
+    return clean;
+  }, [saveConfig]);
+  const addCustomerType = useCallback((name: string) => addOwnOption('customerTypes', CUSTOMER_TYPES, name), [addOwnOption]);
+  const addCustomerSource = useCallback((name: string) => addOwnOption('customerSources', CUSTOMER_SOURCES, name), [addOwnOption]);
+
   /* Changed later, from Settings. */
   const changePlan = useCallback((plan: TierKey) => {
     const from = wsRef.current.config.plan;
@@ -746,6 +776,17 @@ export function TraqiProvider({ children }: { children: React.ReactNode }) {
   const tier = getTier(plan);
   const custLimit = customerLimit(plan);
 
+  /* The workspace's own types and sources lead, then the built-in ones, then
+     any that only exist on a record — an import can bring in one nobody added. */
+  const customerTypes = useMemo(
+    () => ownOptions(ws.config.customerTypes, CUSTOMER_TYPES, ws.customers.map(c => c.type)),
+    [ws.config.customerTypes, ws.customers]
+  );
+  const customerSources = useMemo(
+    () => ownOptions(ws.config.customerSources, CUSTOMER_SOURCES, ws.customers.map(c => c.source)),
+    [ws.config.customerSources, ws.customers]
+  );
+
   const value = useMemo<Ctx>(() => ({
     ws, user, fbUser, stage, currency, toast, cloudOk,
     setCurrency, save, saveConfig, saveTargets, log, submitApproval, showToast,
@@ -761,6 +802,7 @@ export function TraqiProvider({ children }: { children: React.ReactNode }) {
     industry: ws.config.industry,
     categories: categoriesFor(ws.config.industry, ws.config.extraCategories),
     chooseIndustry, addCategory,
+    customerTypes, addCustomerType, customerSources, addCustomerSource,
     linkedAssistant: !!assistantLink,
     joinAsAssistant,
     followUpsDone, markFollowUpDone,
@@ -769,7 +811,7 @@ export function TraqiProvider({ children }: { children: React.ReactNode }) {
     chooseRole, switchRole, logout, roleCandidates
   }), [ws, user, fbUser, stage, currency, toast, cloudOk, save, saveConfig, saveTargets, log,
       submitApproval, showToast, plan, tier, custLimit, choosePlan, changePlan,
-      chooseIndustry, addCategory,
+      chooseIndustry, addCategory, customerTypes, addCustomerType, customerSources, addCustomerSource,
       assistantLink, joinAsAssistant,
       followUpsDone, markFollowUpDone, signInPin, signInPassword,
       register, googleAuth, completeGoogleProfile, resendVerification, checkVerified,

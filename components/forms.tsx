@@ -10,7 +10,7 @@ import { nextId, todayStr } from '@/lib/format';
 import { PERMISSIONS, APPROVAL_REQUIRED } from '@/lib/compute';
 import { UsernameTaken, releaseUsername, reserveUsername, usernameKey } from '@/lib/usernames';
 import { Modal, Field } from './ui';
-import CategorySelect from './CategorySelect';
+import CategorySelect, { CustomerSourceSelect, CustomerTypeSelect } from './CategorySelect';
 import type { Product, Customer, Supplier, Expense, Debt, Assistant } from '@/lib/types';
 
 type FormProps<T> = { open: boolean; onClose: () => void; editing?: T | null };
@@ -125,14 +125,16 @@ export function CustomerForm({ open, onClose, editing }: FormProps<Customer>) {
           <Field label="WhatsApp"><input value={f.wa} onChange={set('wa')} placeholder="0801…" /></Field>
           <Field label="Instagram"><input value={f.insta} onChange={set('insta')} placeholder="@username" /></Field>
           <Field label="City"><input value={f.city} onChange={set('city')} placeholder="Lagos" /></Field>
-          <Field label="Type"><select value={f.type} onChange={set('type')}>{['Regular', 'VIP', 'Wholesale', 'One-time'].map(t => <option key={t}>{t}</option>)}</select></Field>
+          <Field label="Type">
+            <CustomerTypeSelect value={f.type} onChange={type => setF((p: any) => ({ ...p, type }))} />
+          </Field>
           <Field label="Birthday (DD/MM)"><input value={f.bday} onChange={set('bday')} placeholder="14/02" maxLength={5} /></Field>
         </div>
       ) : (
         <div className="form-grid">
-          <Field label="Source"><select value={f.source} onChange={set('source')}>
-            <option value="">Select…</option>{['Instagram', 'WhatsApp', 'Referral', 'Walk-in', 'Facebook', 'TikTok', 'Other'].map(s => <option key={s}>{s}</option>)}
-          </select></Field>
+          <Field label="Source">
+            <CustomerSourceSelect value={f.source} onChange={source => setF((p: any) => ({ ...p, source }))} />
+          </Field>
           <Field label="Referred by"><select value={f.refby} onChange={set('refby')}>
             <option value="">None</option>{ws.customers.filter(c => c.id !== editing?.id).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select></Field>

@@ -1,19 +1,20 @@
 'use client';
 import React, { useState } from 'react';
-import { Eye, MessageCircle, Pencil, Plus, Trash2, Upload, Users, Phone, X } from 'lucide-react';
+import { Activity, Eye, MessageCircle, Pencil, Plus, Trash2, Upload, Users, Phone, X } from 'lucide-react';
 import { useTraqi, useMoney } from '@/lib/store';
 import { useFabAction } from '@/lib/fab';
-import { lastSeenDays } from '@/lib/compute';
+import { CUSTOMER_STATUSES, customerStatus, lastSeenDays } from '@/lib/compute';
 import { waLink, fmtDate } from '@/lib/format';
 import { PageHead, TableWrap, EmptyState, Badge, Avatar } from '@/components/ui';
 import { CustomerForm } from '@/components/forms';
+import { OptionSelect } from '@/components/CategorySelect';
 import ImportModal from '@/components/ImportModal';
 import type { Customer } from '@/lib/types';
 
 export default function CustomersPage() {
-  const { ws, isOwner, can, save, showToast } = useTraqi();
+  const { ws, isOwner, can, save, showToast, customerTypes } = useTraqi();
   const money = useMoney();
-  const [q, setQ] = useState(''); const [type, setType] = useState('');
+  const [q, setQ] = useState(''); const [type, setType] = useState(''); const [status, setStatus] = useState('');
   const [form, setForm] = useState(false); const [editing, setEditing] = useState<Customer | null>(null);
   const [panel, setPanel] = useState<Customer | null>(null);
   const [importOpen, setImportOpen] = useState(false);
@@ -21,8 +22,13 @@ export default function CustomersPage() {
 
   const list = ws.customers.filter(c =>
     (!q || c.name.toLowerCase().includes(q.toLowerCase()) || (c.phone || '').includes(q)) &&
-    (!type || c.type === type));
+    (!type || c.type === type) &&
+    (!status || customerStatus(ws, c.id) === status));
   const today = new Date();
+  const statusBadge = (custId: string) => {
+    const st = CUSTOMER_STATUSES.find(s => s.key === customerStatus(ws, custId));
+    return st ? <span title={st.desc}><Badge tone={st.tone}>{st.key}</Badge></span> : <Badge>No purchases</Badge>;
+  };
 
   const remove = (id: string, name: string) => {
     const before = ws.customers;
@@ -39,12 +45,20 @@ export default function CustomersPage() {
         </> : null} />
       <div className="search-row">
         <input className="search-input" placeholder="Search by name or phone…" value={q} onChange={e => setQ(e.target.value)} />
-        <select value={type} onChange={e => setType(e.target.value)}>
-          <option value="">All types</option>{['VIP', 'Regular', 'Wholesale', 'One-time'].map(t => <option key={t}>{t}</option>)}
-        </select>
+        <div style={{ minWidth: 170 }}>
+          <OptionSelect value={type} onChange={setType} allLabel="All types" icon={Users}
+            options={customerTypes.map(t => ({ value: t }))} />
+        </div>
+        <div style={{ minWidth: 190 }}>
+          <OptionSelect value={status} onChange={setStatus} allLabel="All statuses" icon={Activity}
+            options={CUSTOMER_STATUSES.map(s => ({
+              value: s.key,
+              sub: `${s.desc} · ${ws.customers.filter(c => customerStatus(ws, c.id) === s.key).length}`
+            }))} />
+        </div>
       </div>
       {list.length ? (
-        <TableWrap head={<tr><th>Name</th><th>Phone</th><th>Source</th><th>Type</th><th>Birthday</th><th className="num">Orders</th><th className="num">Spent</th><th>Last seen</th><th /></tr>}>
+        <TableWrap head={<tr><th>Name</th><th>Phone</th><th>Source</th><th>Type</th><th>Status</th><th>Birthday</th><th className="num">Orders</th><th className="num">Spent</th><th>Last seen</th><th /></tr>}>
           {list.map(c => {
             const cs = ws.sales.filter(s => s.custId === c.id);
             const orders = new Set(cs.map(s => s.orderId || s.id)).size;
@@ -59,6 +73,7 @@ export default function CustomersPage() {
                 <td>{c.phone || '—'}</td>
                 <td><Badge>{c.source || '—'}</Badge></td>
                 <td><Badge tone={c.type === 'VIP' ? 'amber' : c.type === 'Wholesale' ? 'indigo' : 'green'}>{c.type}</Badge></td>
+                <td>{statusBadge(c.id)}</td>
                 <td>{c.bday || '—'}</td>
                 <td className="num tnum">{orders}</td>
                 <td className="num tnum"><strong>{money(spent)}</strong></td>
@@ -75,7 +90,7 @@ export default function CustomersPage() {
         </TableWrap>
       ) : (
         <EmptyState icon={Users} title={ws.customers.length ? 'No matches' : 'No customers yet'}
-          text={ws.customers.length ? 'Try a different search.' : 'Add your first customer to start tracking follow-ups.'}
+          text={ws.customers.length ? 'Try a different search or filter.' : 'Add your first customer to start tracking follow-ups.'}
           action={can('add_customers') ? <button className="btn btn-primary" onClick={() => { setEditing(null); setForm(true); }}><Plus />Add Customer</button> : null} />
       )}
 
@@ -103,6 +118,7 @@ export default function CustomersPage() {
             </div>
             <div className="panel-sec">
               <div className="panel-sec-title">Stats</div>
+              <div className="panel-stat"><span>Status</span>{statusBadge(panel.id)}</div>
               <div className="panel-stat"><span>Orders</span><strong>{orders.length}</strong></div>
               <div className="panel-stat"><span>Total spent</span><strong className="tnum">{money(spent)}</strong></div>
               <div className="panel-stat"><span>Last seen</span><strong>{last < 0 ? 'Never' : last === 0 ? 'Today' : last + ' days ago'}</strong></div>

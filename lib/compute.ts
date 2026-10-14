@@ -153,6 +153,24 @@ export function lastSeenDays(ws: Workspace, custId: string) {
   const cs = ws.sales.filter(s => s.custId === custId).sort((a, b) => +new Date(b.date) - +new Date(a.date));
   return cs.length ? -diffDays(cs[0].date) : -1;
 }
+/* Where a customer stands, read off their last purchase — never stored, so it
+   moves on by itself as the months pass. Someone who has never bought has no
+   last purchase to measure from, and so no status yet. */
+export type CustomerStatus = 'Active' | 'Dormant' | 'Forgotten';
+export const CUSTOMER_STATUSES: { key: CustomerStatus; desc: string; tone: 'green' | 'amber' | 'red' }[] = [
+  { key: 'Active', desc: 'Purchased within the last 3 months', tone: 'green' },
+  { key: 'Dormant', desc: 'Last purchase was 3–6 months ago', tone: 'amber' },
+  { key: 'Forgotten', desc: 'No purchase for 6+ months', tone: 'red' }
+];
+export function customerStatus(ws: Workspace, custId: string): CustomerStatus | '' {
+  let last = 0;
+  ws.sales.forEach(s => { if (s.custId === custId) last = Math.max(last, +new Date(s.date) || 0); });
+  if (!last) return '';
+  const monthsAgo = (n: number) => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setMonth(d.getMonth() - n); return +d; };
+  if (last >= monthsAgo(3)) return 'Active';
+  if (last >= monthsAgo(6)) return 'Dormant';
+  return 'Forgotten';
+}
 export function pendingTaskCount(ws: Workspace, user: CurrentUser) {
   return user.role === 'owner'
     ? ws.tasks.filter(t => t.status !== 'done').length

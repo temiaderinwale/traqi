@@ -14,6 +14,10 @@ export type Customer = {
   bday: string; source: string; refby: string; scent: string; notes: string;
 };
 
+/* The types every workspace starts with; an owner's own are kept in config. */
+export const CUSTOMER_TYPES = ['Regular', 'VIP', 'Wholesale', 'One-time'];
+export const CUSTOMER_SOURCES = ['Instagram', 'WhatsApp', 'Referral', 'Walk-in', 'Facebook', 'TikTok', 'Other'];
+
 export type Sale = {
   id: string; orderId: string; date: string; custId: string; custName: string;
   prodId: string; prodName: string; cat: string; qty: number; price: number; cost: number;
@@ -93,6 +97,10 @@ export type Config = {
      no entry in INDUSTRIES to read a name from. */
   customIndustry: string;
   extraCategories: string[];
+  /* Customer types this workspace added on top of CUSTOMER_TYPES. */
+  customerTypes: string[];
+  /* Likewise for where customers heard of the business (CUSTOMER_SOURCES). */
+  customerSources: string[];
 };
 
 export type Workspace = {
@@ -117,7 +125,7 @@ export const COLLECTIONS: CollectionKey[] = [
 export const DEFAULT_CONFIG: Config = {
   bizName: '', ownerName: 'Owner', email: '', pin: '1234',
   onboarded: false, soundOn: false, receiptCounter: 0, plan: '', planChosenAt: '',
-  industry: '', customIndustry: '', extraCategories: []
+  industry: '', customIndustry: '', extraCategories: [], customerTypes: [], customerSources: []
 };
 
 export const emptyWorkspace = (): Workspace => ({

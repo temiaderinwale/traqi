@@ -26,10 +26,47 @@ export default function FinancialsPage() {
   const target = ws.targets[`${m + 1}-${y}`] || 0;
   const pct = target ? Math.min(100, Math.round(thisM.rev / target * 100)) : 0;
 
-  const cats: Record<string, number> = {};
-  ws.sales.forEach(s => { cats[s.cat || 'Uncategorised'] = (cats[s.cat || 'Uncategorised'] || 0) + s.qty * s.price; });
-  const catKeys = Object.keys(cats).sort((a, b) => cats[b] - cats[a]);
-  const maxCat = Math.max(...catKeys.map(k => cats[k]), 1);
+  /* The breakdown and the chart under it answer the same question — revenue or
+     profit, by category or by product — so one pair of toggles drives both.
+     Profit here is per sale line (price less cost and discount); expenses
+     belong to the business, not to any one product, so they stay out of it. */
+  const [metric, setMetric] = useState<'rev' | 'profit'>('rev');
+  const [group, setGroup] = useState<'cat' | 'prod'>('cat');
+  const [focus, setFocus] = useState('');
+  const [showAll, setShowAll] = useState(false);
+  const metricName = metric === 'rev' ? 'Revenue' : 'Profit';
+  const groupName = group === 'cat' ? 'category' : 'product';
+
+  const keyOf = (s: typeof ws.sales[number]) =>
+    group === 'cat' ? (s.cat || 'Uncategorised') : (s.prodId || s.prodName || 'Unknown product');
+  const lineValue = (s: typeof ws.sales[number]) =>
+    metric === 'rev' ? s.qty * s.price : s.qty * (s.price - s.cost) - (s.discount || 0);
+  const labelOf = (k: string) =>
+    group === 'cat' ? k : (ws.products.find(p => p.id === k)?.name || ws.sales.find(s => s.prodId === k)?.prodName || k);
+
+  const totals: Record<string, number> = {};
+  ws.sales.forEach(s => { const k = keyOf(s); totals[k] = (totals[k] || 0) + lineValue(s); });
+  const keys = Object.keys(totals).sort((a, b) => totals[b] - totals[a]);
+  const maxAbs = Math.max(...keys.map(k => Math.abs(totals[k])), 1);
+  const LIMIT = 8;
+  const shownKeys = showAll ? keys : keys.slice(0, LIMIT);
+
+  const chartData = MONTHS.map((mn, i) => {
+    const v = ws.sales.reduce((a, s) => {
+      const d = new Date(s.date);
+      if (d.getMonth() !== i || d.getFullYear() !== y) return a;
+      if (focus && keyOf(s) !== focus) return a;
+      return a + lineValue(s);
+    }, 0);
+    return {
+      label: mn.slice(0, 1), value: Math.max(0, v), active: i === m,
+      display: v ? (v < 0 ? '−' : '') + Math.round(Math.abs(v) / 1000) + 'k' : ''
+    };
+  });
+  const switchView = (mt: typeof metric, gr: typeof group) => {
+    if (gr !== group) { setFocus(''); setShowAll(false); }
+    setMetric(mt); setGroup(gr);
+  };
 
   const exportCSV = () => {
     const rows = [['Month', 'Revenue', 'Expenses', 'COGS', 'Net Profit', 'Margin %', 'Sales']];
@@ -115,21 +152,50 @@ export default function FinancialsPage() {
           </TableWrap>
         </div>
         <div>
-          <SectionHead title="Revenue by category" icon={PieChart} />
+          <SectionHead title={`${metricName} by ${groupName}`} icon={PieChart} />
           <Card>
-            {catKeys.length ? catKeys.map((c, i) => (
-              <div key={c} style={{ marginBottom: 14 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.83rem', marginBottom: 6 }}>
-                  <span style={{ fontWeight: 500 }}>{c}</span><strong className="tnum">{money(cats[c])}</strong>
-                </div>
-                <HBar pct={cats[c] / maxCat * 100} color={PALETTE[i % PALETTE.length]} />
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+              <div className="pill-toggle">
+                <button className={metric === 'rev' ? 'on' : ''} onClick={() => switchView('rev', group)}>Revenue</button>
+                <button className={metric === 'profit' ? 'on' : ''} onClick={() => switchView('profit', group)}>Profit</button>
               </div>
-            )) : <p className="hint" style={{ textAlign: 'center', margin: 0 }}>No sales data yet</p>}
+              <div className="pill-toggle">
+                <button className={group === 'cat' ? 'on' : ''} onClick={() => switchView(metric, 'cat')}>Category</button>
+                <button className={group === 'prod' ? 'on' : ''} onClick={() => switchView(metric, 'prod')}>Product</button>
+              </div>
+            </div>
+            {keys.length ? <>
+              {shownKeys.map((k, i) => {
+                const v = totals[k];
+                const on = focus === k;
+                return (
+                  <div key={k} role="button" tabIndex={0} title="Show in the chart below"
+                    onClick={() => setFocus(on ? '' : k)}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFocus(on ? '' : k); } }}
+                    style={{ marginBottom: 14, cursor: 'pointer', opacity: focus && !on ? 0.55 : 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: '.83rem', marginBottom: 6 }}>
+                      <span style={{ fontWeight: on ? 700 : 500 }}>{labelOf(k)}</span>
+                      <strong className={'tnum' + (v < 0 ? ' neg' : '')}>{money(v)}</strong>
+                    </div>
+                    <HBar pct={Math.abs(v) / maxAbs * 100} color={v < 0 ? 'var(--red-600)' : PALETTE[i % PALETTE.length]} />
+                  </div>
+                );
+              })}
+              {keys.length > LIMIT && (
+                <button className="btn btn-ghost btn-sm" onClick={() => setShowAll(s => !s)}>
+                  {showAll ? 'Show top ' + LIMIT : `Show all ${keys.length}`}
+                </button>
+              )}
+              {metric === 'profit' && <p className="hint" style={{ margin: '10px 0 0' }}>Selling price less cost and discounts, before expenses.</p>}
+            </> : <p className="hint" style={{ textAlign: 'center', margin: 0 }}>No sales data yet</p>}
           </Card>
           <div style={{ height: 16 }} />
-          <SectionHead title="Revenue chart" icon={BarChart3} />
+          <SectionHead title={`${metricName} chart`} icon={BarChart3}
+            right={focus
+              ? <button className="btn btn-ghost btn-sm" onClick={() => setFocus('')}>{labelOf(focus)} ✕</button>
+              : <Badge>All {group === 'cat' ? 'categories' : 'products'} · {y}</Badge>} />
           <Card>
-            <BarChart data={monthly.map(r => ({ label: r.month.slice(0, 1), value: r.rev, active: r.idx === m }))} />
+            <BarChart data={chartData} />
           </Card>
         </div>
       </div>
