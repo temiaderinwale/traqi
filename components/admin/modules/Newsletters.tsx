@@ -12,6 +12,7 @@ import {
   Ban, Copy, FileDown, Mail, Megaphone, Send, Trash2, Users
 } from 'lucide-react';
 import { Card, Kpi, KpiGrid, SectionHead, TableWrap, Badge, Field, Modal } from '@/components/ui';
+import { OptionSelect } from '@/components/Dropdown';
 import { addDoc, collection, deleteDoc, doc, getDocs, setDoc, updateDoc, useAdmin } from '@/lib/adminStore';
 import { adminDb } from '@/lib/adminFirebase';
 import { usePlatform } from '../platform';
@@ -223,9 +224,8 @@ export default function Newsletters() {
           </div>
           <div style={{ marginTop: 14 }}>
             <Field label="Audience">
-              <select value={audience} onChange={e => setAudience(e.target.value as NewsletterAudience)}>
-                {AUDIENCES.map(a => <option key={a.key} value={a.key}>{a.label}</option>)}
-              </select>
+              <OptionSelect value={audience} onChange={v => setAudience(v as NewsletterAudience)}
+                options={AUDIENCES.map(a => ({ value: a.key, label: a.label, sub: a.desc }))} />
             </Field>
             <p className="hint" style={{ marginTop: 6 }}>
               {AUDIENCES.find(a => a.key === audience)?.desc} · <strong>{count(recipients.length)}</strong> recipients

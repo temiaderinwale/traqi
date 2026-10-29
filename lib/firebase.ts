@@ -108,6 +108,15 @@ export function loadBundle(username: string): Bundle | null {
   try { return JSON.parse(decodeURIComponent(escape(atob(raw)))); } catch { return null; }
 }
 
+/** Carries this browser's quick sign-in over when a username changes. */
+export function moveBundle(from: string, to: string) {
+  if (!from || !to || bundleKey(from) === bundleKey(to)) return;
+  const b = loadBundle(from);
+  if (!b) return;
+  storeBundle(to, b);
+  localStorage.removeItem(bundleKey(from));
+}
+
 /** Merge into whatever is already on file — never clears a stored password. */
 export function rememberAccount(username: string, patch: Partial<Bundle>) {
   const b = loadBundle(username);

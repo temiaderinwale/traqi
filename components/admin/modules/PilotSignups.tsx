@@ -12,6 +12,7 @@ import {
   Archive, Check, FileDown, Mail, MessageCircle, Rocket, RotateCcw, Search, Sparkles, Trash2
 } from 'lucide-react';
 import { Badge, Card, Kpi, KpiGrid, Modal, TableWrap } from '@/components/ui';
+import { OptionSelect } from '@/components/Dropdown';
 import { useAdmin } from '@/lib/adminStore';
 import {
   downloadCsv, fetchPilotSignups, setPilotArchived, setPilotNote, setPilotStatus
@@ -190,10 +191,8 @@ export default function PilotSignups() {
           <input className="search-input" style={{ paddingLeft: 36 }} placeholder="Search name, business, location or email"
             value={q} onChange={e => setQ(e.target.value)} />
         </div>
-        <select value={status} onChange={e => setStatus(e.target.value as any)}>
-          <option value="">Every status</option>
-          {PILOT_STATUSES.map(s => <option key={s} value={s}>{PILOT_LABEL[s]}</option>)}
-        </select>
+        <OptionSelect value={status} onChange={v => setStatus(v as any)} allLabel="Every status"
+          options={PILOT_STATUSES.map(s => ({ value: s, label: PILOT_LABEL[s] }))} />
         <button className="btn btn-secondary btn-sm" onClick={load}>Refresh</button>
         {/* The archive is only ever on screen because it was asked for. */}
         <button className={'btn btn-sm ' + (view === 'archive' ? 'btn-primary' : 'btn-secondary')}

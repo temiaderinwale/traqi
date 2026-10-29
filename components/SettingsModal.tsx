@@ -8,11 +8,13 @@ import { saveWorkspace } from '@/lib/firebase';
 import { COLLECTIONS, DEFAULT_CONFIG, Workspace } from '@/lib/types';
 import { FEATURE_LABEL, TIERS, TierKey, limitLabel } from '@/lib/tiers';
 import { todayStr } from '@/lib/format';
+import { UsernameTaken } from '@/lib/usernames';
 import { Modal, Field } from './ui';
 import { TierCards } from './TierSelect';
+import { UsernameInput, useUsernameCheck } from './UsernameField';
 
 export default function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { ws, isOwner, tier, changePlan, save, saveConfig, saveTargets, log, showToast, fbUser, currency, setCurrency } = useTraqi();
+  const { ws, isOwner, tier, changePlan, save, saveConfig, saveTargets, log, showToast, fbUser, currency, setCurrency, renameOwner } = useTraqi();
   const [planOpen, setPlanOpen] = useState(false);
   const [picked, setPicked] = useState<TierKey>('starter');
   const [editBiz, setEditBiz] = useState(false);
@@ -20,11 +22,17 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
   const [pin, setPin] = useState('');
   const [pin2, setPin2] = useState('');
   const [dark, setDark] = useState(false);
+  const [editUser, setEditUser] = useState(false);
+  const [uname, setUname] = useState('');
+  const [savingUser, setSavingUser] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const uCheck = useUsernameCheck(uname, {
+    original: ws.config.ownerName, mine: { uid: fbUser?.uid }, enabled: editUser
+  });
 
   useEffect(() => {
     if (!open) return;
-    setBizName(ws.config.bizName); setEditBiz(false); setPin(''); setPin2('');
+    setBizName(ws.config.bizName); setEditBiz(false); setEditUser(false); setPin(''); setPin2('');
     setPlanOpen(false); setPicked((ws.config.plan || 'starter') as TierKey);
     setDark(document.documentElement.classList.contains('dark'));
   }, [open, ws.config.bizName, ws.config.plan]);
@@ -59,6 +67,22 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
     log('Updated business name', bizName.trim());
     setEditBiz(false);
     showToast('Business name updated');
+  };
+
+  const saveUser = async () => {
+    if (uCheck.state === 'same') { setEditUser(false); return; }
+    if (!uCheck.ok) { if (uCheck.message) showToast(uCheck.message); return; }
+    const prev = ws.config.ownerName;
+    setSavingUser(true);
+    try {
+      await renameOwner(uname);
+      log('Changed username', `${prev} → ${uname}`);
+      setEditUser(false);
+      showToast('Username updated');
+    } catch (e: any) {
+      showToast(e instanceof UsernameTaken ? 'Username already taken — please choose another.' : e?.message || 'Could not change the username — try again');
+    }
+    setSavingUser(false);
   };
 
   const changePin = () => {
@@ -131,11 +155,35 @@ export default function SettingsModal({ open, onClose }: { open: boolean; onClos
                 <button className="btn btn-secondary btn-sm" onClick={() => setEditBiz(true)}><Pencil />Edit</button>
               </div>
             )}
-            <div style={{ fontSize: '.85rem', color: 'var(--text-2)', marginTop: 8 }}>
-              Owner: <strong style={{ color: 'var(--text)' }}>{ws.config.ownerName}</strong>
-            </div>
-            <div style={{ fontSize: '.85rem', color: 'var(--text-2)', marginTop: 3 }}>
+            {editUser ? (
+              <div className="field" style={{ marginTop: 12 }}>
+                <label className="label">Username / Owner</label>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                  <div style={{ flex: '1 1 200px', minWidth: 0, display: 'grid', gap: 6 }}>
+                    <UsernameInput value={uname} onChange={setUname} check={uCheck} autoFocus
+                      placeholder="e.g. amaka" onEnter={saveUser} />
+                  </div>
+                  <button className="btn btn-primary btn-sm" onClick={saveUser} disabled={savingUser || !uCheck.ok}>
+                    {savingUser ? 'Saving…' : 'Save'}
+                  </button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => setEditUser(false)}>Cancel</button>
+                </div>
+                <span className="hint">No spaces. Unique across Traqi — it is also what you sign in with.</span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginTop: 8 }}>
+                <div style={{ fontSize: '.85rem', color: 'var(--text-2)', minWidth: 0, overflowWrap: 'anywhere' }}>
+                  Username / Owner: <strong style={{ color: 'var(--text)' }}>{ws.config.ownerName}</strong>
+                </div>
+                <button className="btn btn-secondary btn-sm" onClick={() => { setUname(ws.config.ownerName || ''); setEditUser(true); }}>
+                  <Pencil />Edit
+                </button>
+              </div>
+            )}
+            {/* The address is the account itself — it is shown, never edited here. */}
+            <div style={{ fontSize: '.85rem', color: 'var(--text-2)', marginTop: 8, overflowWrap: 'anywhere' }}>
               Email: <strong style={{ color: 'var(--text)' }}>{ws.config.email || '—'}</strong>
+              <Lock style={{ width: 12, height: 12, marginLeft: 6, verticalAlign: '-1px', color: 'var(--text-3)' }} aria-label="Cannot be changed" />
             </div>
           </div>
         )}

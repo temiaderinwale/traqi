@@ -695,6 +695,72 @@ body.auth-mode .app-wrap,body.auth-mode .mob-nav,body.auth-mode .fab,body.auth-m
 .cat-opt svg{width:14px;height:14px;color:var(--text-3);flex-shrink:0}
 .cat-opt.on{background:var(--indigo-50)}
 .cat-opt.on .ss-name{color:var(--indigo-600)}
+.cat-value{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cat-opt-text{flex:1;min-width:0}
+.cat-opt-text .ss-name,.cat-opt-text .ss-sub{display:block}
+.cat-opt svg.cat-check{width:15px;height:15px;color:var(--indigo-600);margin-left:auto}
+.cat-trigger-bare{display:flex;align-items:center;gap:8px;text-align:left;cursor:pointer;font:inherit}
+.float-drop .ss-opt.on:not(.cat-opt){background:var(--indigo-50)}
+.cat-trigger.sm{padding:.4rem .6rem;font-size:.76rem;border-radius:.6rem}
+.cat-trigger.invalid{border-color:var(--red-600)}
+.cat-trigger:disabled{opacity:.6;cursor:not-allowed}
+.cat-trigger:focus-visible{outline:2px solid var(--indigo-400);outline-offset:1px}
+.search-row .ss-wrap{min-width:160px}
+
+/* ---------- Floating dropdowns ----------
+   Drawn on <body>, above modals, and placed against their field by
+   Dropdown.tsx — so no scroll box can clip them. */
+.ss-drop.float-drop{position:fixed;right:auto;margin:0;z-index:900;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.ss-opt.hl{background:var(--surface-2)}
+.ss-opt{-webkit-tap-highlight-color:transparent}
+/* Tap targets stay comfortable on a phone. */
+@media(pointer:coarse){.float-drop .ss-opt{padding:11px 14px}}
+.tick{width:17px;height:17px;border-radius:5px;border:1.5px solid var(--border);display:grid;place-items:center;flex-shrink:0;background:var(--surface)}
+.tick.on{background:var(--indigo-600);border-color:var(--indigo-600)}
+.cat-opt .tick.on svg{width:12px;height:12px;color:#fff}
+.multi-all .ss-name{color:var(--text-2)}
+.multi-done{position:sticky;bottom:0;display:flex;justify-content:flex-end;padding:8px 10px;background:var(--surface);border-top:1px solid var(--border)}
+/* A typed search field with its results under it. */
+.combo-field{position:relative}
+.combo-field svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--text-3);pointer-events:none}
+.combo-field input{padding-left:2.1rem}
+.ss-head{position:sticky;top:0;z-index:1;padding:7px 13px;font-size:.66rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-3);background:var(--surface);border-bottom:1px solid var(--divider)}
+.ss-row{display:flex;align-items:center;gap:10px}
+.ss-row-main{flex:1;min-width:0}
+.ss-row-main .ss-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ss-price{font-size:.8rem;font-weight:700;white-space:nowrap}
+/* The business's own best sellers — a quiet star, not a label. */
+.top-pick{background:linear-gradient(90deg,color-mix(in srgb,var(--amber-500) 9%,transparent),transparent 70%)}
+.top-mark{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:99px;margin-left:6px;vertical-align:-3px;
+  background:color-mix(in srgb,var(--amber-500) 18%,transparent);color:#B45309}
+.top-mark svg{width:11px;height:11px;fill:currentColor}
+.dark .top-mark{color:#FBBF24}
+
+/* ---------- Username field ---------- */
+.uname-status{display:flex;align-items:center;gap:5px;font-size:.72rem;font-weight:600;margin-top:6px}
+.uname-status svg{width:13px;height:13px;flex-shrink:0}
+.uname-status.free{color:var(--green-600)}
+.uname-status.taken,.uname-status.invalid{color:var(--red-600)}
+.uname-status.checking{color:var(--text-3)}
+.spin{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ---------- Date filter (sales log) ---------- */
+.date-filter{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.date-filter .ss-wrap{min-width:150px}
+.date-filter input[type=date]{width:auto;min-width:140px;background:var(--surface)}
+.date-filter .to{font-size:.74rem;font-weight:700;color:var(--text-3)}
+.filter-sum{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:.8rem;color:var(--text-2);margin:-4px 0 14px}
+.filter-sum strong{color:var(--text)}
+@media(max-width:640px){
+  .search-row > :not(.btn){flex:1 1 100%}
+  .search-row .search-input{min-width:0!important;width:100%}
+  .date-filter{flex:1 1 100%}
+  .date-filter > *{flex:1 1 140px}
+  .date-filter input[type=date]{width:100%;min-width:0}
+  .date-filter .to{flex:0 0 auto}
+}
 
 /* ============================================================
    Pilot page (/pilot)

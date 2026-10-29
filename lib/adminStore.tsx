@@ -23,7 +23,10 @@ import {
 } from 'firebase/firestore';
 import { adminAuth, adminDb } from './adminFirebase';
 import { AdminUser, AdminRole, AdminStatus, AdminAudit, C } from './adminTypes';
-import { lookupEmail, recordEmail } from './usernames';
+import {
+  UsernameTaken, claimUsername, cleanUsername, freeUsernameFrom, isUsernameFree,
+  lookupEmail, recordEmail, resolveToEmail, usernameProblem
+} from './usernames';
 
 export type AdminStage =
   | 'loading' | 'signedOut' | 'noaccess' | 'pending' | 'rejected' | 'suspended' | 'ready';
@@ -60,6 +63,10 @@ const iso = () => new Date().toISOString();
 /** Thrown by signIn/googleAuth when the account is authentic but not an admin. */
 export class NoAdminAccess extends Error {
   constructor() { super('This account does not have admin access.'); this.name = 'NoAdminAccess'; }
+}
+/** The username typed at sign-in belongs to nobody. */
+export class AdminNotFound extends Error {
+  constructor() { super('No account found with that username or email.'); this.name = 'AdminNotFound'; }
 }
 /** The address is already registered under the other sign-in method. */
 export class WrongSignInMethod extends Error {
@@ -137,6 +144,9 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         if (rec) {
           await updateDoc(doc(adminDb, C.admins, u.uid), { lastLoginAt: iso() }).catch(() => {});
           rec.lastLoginAt = iso();
+          /* Admins made before the shared registry get their name entered now,
+             so no business account can sign up under it. Best effort. */
+          if (rec.username) claimUsername(rec.username, u.email || '', u.uid, 'admin', adminDb).catch(() => false);
         }
         setMe(rec);
         setStage(stageFor(rec));
@@ -173,7 +183,10 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   /* ---------- Auth actions ---------- */
-  const signIn = useCallback(async (email: string, pw: string) => {
+  const signIn = useCallback(async (identifier: string, pw: string) => {
+    /* An admin's username is as good as their address, same as in the app. */
+    const email = await resolveToEmail(identifier, adminDb);
+    if (!email) throw new AdminNotFound();
     busyAuth.current = true;
     try {
       const cred = await signInWithEmailAndPassword(adminAuth, email, pw);
@@ -185,13 +198,20 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     } finally { busyAuth.current = false; }
   }, []);
 
-  const register = useCallback(async (username: string, email: string, pw: string) => {
+  const register = useCallback(async (name: string, email: string, pw: string) => {
+    /* One registry for every username on Traqi — admins included — checked
+       before an account exists, so a refusal leaves nothing behind. */
+    const username = cleanUsername(name);
+    const problem = usernameProblem(username);
+    if (problem) throw new Error(problem);
+    if (!(await isUsernameFree(username, undefined, adminDb))) throw new UsernameTaken(username);
     const known = await lookupEmail(email, adminDb);
     if (known && known.provider === 'google') throw new WrongSignInMethod('google');
     busyAuth.current = true;
     try {
       const cred = await createUserWithEmailAndPassword(adminAuth, email, pw);
       await recordEmail(email, 'password', cred.user.uid, adminDb);
+      await claimUsername(username, email, cred.user.uid, 'admin', adminDb).catch(() => false);
       await updateProfile(cred.user, { displayName: username }).catch(() => {});
       const rec = await claimOrRequest(cred.user, username, 'password');
       setMe(rec);
@@ -220,14 +240,19 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         /* Signing in is not a way to ask for access — that is what Register is
            for. Turn the session away rather than leaving it half-authenticated. */
         if (mode === 'signin') { await signOut(adminAuth).catch(() => {}); throw new NoAdminAccess(); }
-        rec = await claimOrRequest(cred.user, cred.user.displayName || '', 'google');
+        /* Nobody typed this name, so a clash gets a free variant, not a refusal. */
+        const username = await freeUsernameFrom(cred.user.displayName || (cred.user.email || '').split('@')[0], adminDb);
+        await claimUsername(username, cred.user.email || '', cred.user.uid, 'admin', adminDb).catch(() => false);
+        rec = await claimOrRequest(cred.user, username, 'google');
       }
       setMe(rec);
       setStage(stageFor(rec));
     } finally { busyAuth.current = false; }
   }, []);
 
-  const resetPassword = useCallback(async (email: string) => {
+  const resetPassword = useCallback(async (identifier: string) => {
+    const email = await resolveToEmail(identifier, adminDb);
+    if (!email) throw new AdminNotFound();
     await sendPasswordResetEmail(adminAuth, email);
   }, []);
 

@@ -9,6 +9,7 @@ import { useTraqi, EmailNotFound, WrongSignInMethod } from '@/lib/store';
 import { authError, strength, nextId } from '@/lib/format';
 import { UsernameTaken } from '@/lib/usernames';
 import { Field } from '@/components/ui';
+import { UsernameInput, useUsernameCheck } from '@/components/UsernameField';
 import { Mark, Wordmark } from '@/components/Brand';
 import Preloader from '@/components/Preloader';
 import TierSelect from '@/components/TierSelect';
@@ -19,6 +20,8 @@ type Panel = 'si' | 'pw' | 'reg' | 'reset';
 /* Our own sign-in errors carry their own wording; Firebase's arrive as codes. */
 function authMessage(e: any): string {
   if (e instanceof EmailNotFound || e instanceof WrongSignInMethod || e instanceof UsernameTaken) return e.message;
+  /* Our own plain errors (a username that breaks the rules) carry no code. */
+  if (e instanceof Error && !(e as any).code && e.message) return e.message;
   if (e?.code === 'auth/email-already-in-use') {
     return 'Email already exists — that address is already registered. Sign in instead, or use Continue with Google if that is how you signed up.';
   }
@@ -86,6 +89,9 @@ export default function AuthPage() {
     if (tab === 'register' || tab === 'reg') setPanel('reg');
   }, []);
 
+  const rCheck = useUsernameCheck(rUser, { enabled: panel === 'reg' });
+  const gCheck = useUsernameCheck(gUser, { mine: { uid: t.fbUser?.uid }, enabled: t.stage === 'completeProfile' });
+
   const st = strength(rPw);
   /* Flag a confirmation the moment it diverges, but stay quiet while it is
      still a correct prefix — nobody wants "does not match" on every keystroke
@@ -119,6 +125,7 @@ export default function AuthPage() {
 
   const doReg = async () => {
     if (!rBiz || !rUser || !rEmail || !rPw || !rPw2 || !rPin || !rPin2) return setMsg({ text: 'Fill in all fields.', type: 'err' });
+    if (rCheck.state === 'taken' || rCheck.state === 'invalid') return setMsg({ text: rCheck.message, type: 'err' });
     if (rPw !== rPw2) return setMsg({ text: 'Passwords do not match.', type: 'err' });
     if (rPw.length < 6) return setMsg({ text: 'Password must be at least 6 characters.', type: 'err' });
     if (!/^\d{4}$/.test(rPin)) return setMsg({ text: 'PIN must be exactly 4 digits.', type: 'err' });
@@ -156,7 +163,9 @@ export default function AuthPage() {
         <p className="hint" style={{ marginBottom: 18 }}>You&apos;re signed in with Google — just a few details to finish setting up.</p>
         <div className="form-grid" style={{ marginBottom: 14 }}>
           <Field label="Business name"><input value={gBiz} onChange={e => setGBiz(e.target.value)} placeholder="Bling Fragrances" /></Field>
-          <Field label="Username"><input value={gUser} onChange={e => setGUser(e.target.value)} placeholder="amaka" /></Field>
+          <Field label="Username" hint="No spaces — you can sign in with it">
+            <UsernameInput value={gUser} onChange={setGUser} check={gCheck} placeholder="amaka" />
+          </Field>
         </div>
         <Field label="4-digit PIN">
           <input type="password" className="pin-input" maxLength={4} inputMode="numeric" placeholder="••••" {...NO_AUTOFILL}
@@ -165,8 +174,12 @@ export default function AuthPage() {
         <button className="btn btn-primary btn-block" style={{ marginTop: 18 }} disabled={loading}
           onClick={async () => {
             if (!gBiz || !gUser || !/^\d{4}$/.test(gPin)) return setMsg({ text: 'Fill in all fields (PIN must be 4 digits).', type: 'err' });
+            if (gCheck.state === 'taken' || gCheck.state === 'invalid') return setMsg({ text: gCheck.message, type: 'err' });
             setLoading(true);
-            try { await t.completeGoogleProfile(gUser, gPin, gBiz); } catch { setMsg({ text: 'Could not complete registration.', type: 'err' }); }
+            try { await t.completeGoogleProfile(gUser, gPin, gBiz); }
+            catch (e: any) {
+              setMsg({ text: e instanceof UsernameTaken || (e instanceof Error && !(e as any).code) ? e.message : 'Could not complete registration.', type: 'err' });
+            }
             setLoading(false);
           }}>Complete Registration</button>
         {msg && <div className={'msg ' + msg.type}>{msg.text}</div>}
@@ -281,7 +294,9 @@ export default function AuthPage() {
               <div className="divider"><span>or register with email</span></div>
               <div className="form-grid" style={{ marginBottom: 14 }}>
                 <Field label="Business name"><input value={rBiz} onChange={e => setRBiz(e.target.value)} placeholder="Bling Fragrances" /></Field>
-                <Field label="Username"><input value={rUser} onChange={e => setRUser(e.target.value)} placeholder="amaka" /></Field>
+                <Field label="Username" hint="No spaces — you can sign in with it">
+                  <UsernameInput value={rUser} onChange={setRUser} check={rCheck} placeholder="amaka" />
+                </Field>
               </div>
               <Field label="Email address"><input type="email" value={rEmail} onChange={e => setREmail(e.target.value)} placeholder="you@business.com" /></Field>
               <div className="field" style={{ marginTop: 14 }}>

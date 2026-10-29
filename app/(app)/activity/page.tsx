@@ -1,8 +1,9 @@
 'use client';
 import React, { useState } from 'react';
-import { Activity } from 'lucide-react';
+import { Activity, User } from 'lucide-react';
 import { useTraqi } from '@/lib/store';
 import { PageHead, EmptyState, Card } from '@/components/ui';
+import { OptionSelect } from '@/components/Dropdown';
 
 export default function ActivityPage() {
   const { ws } = useTraqi();
@@ -18,10 +19,8 @@ export default function ActivityPage() {
       <PageHead sub="Everything that happened in this workspace" />
       <div className="search-row">
         <input className="search-input" placeholder="Filter by name or action…" value={q} onChange={e => setQ(e.target.value)} />
-        <select value={who} onChange={e => setWho(e.target.value)}>
-          <option value="">All users</option>
-          {Object.keys(users).map(u => <option key={u} value={u}>{users[u]}</option>)}
-        </select>
+        <OptionSelect value={who} onChange={setWho} allLabel="All users" icon={User}
+          options={Object.keys(users).map(u => ({ value: u, label: users[u] }))} />
       </div>
       {logs.length ? (
         <Card>

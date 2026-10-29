@@ -3,7 +3,10 @@
 
 import React, { useState } from 'react';
 import { Eye, EyeOff, MailCheck, ShieldAlert, ShieldCheck, ShieldX } from 'lucide-react';
-import { useAdmin, NoAdminAccess, WrongSignInMethod } from '@/lib/adminStore';
+import { useAdmin, NoAdminAccess, WrongSignInMethod, AdminNotFound } from '@/lib/adminStore';
+import { adminDb } from '@/lib/adminFirebase';
+import { UsernameTaken } from '@/lib/usernames';
+import { UsernameInput, useUsernameCheck } from '@/components/UsernameField';
 import { authError, strength } from '@/lib/format';
 import { Field } from '@/components/ui';
 import { Mark, Wordmark } from '@/components/Brand';
@@ -121,11 +124,13 @@ export default function AdminAuth() {
   /* Quiet while the confirmation is still a correct prefix — same rule the
      business registration form uses. */
   const pwMismatch = rPw2.length > 0 && !rPw.startsWith(rPw2);
+  const uCheck = useUsernameCheck(rUser, { dbi: adminDb, enabled: tab === 'reg' });
 
   const go = (t: 'si' | 'reg') => { setTab(t); setMsg(null); };
   const fail = (e: any) => setMsg({
     text: e instanceof NoAdminAccess ? e.message + ' Register to request access.'
-      : e instanceof WrongSignInMethod ? e.message
+      : e instanceof WrongSignInMethod || e instanceof UsernameTaken || e instanceof AdminNotFound ? e.message
+        : e?.code === undefined && e?.message ? e.message
         : e?.code === 'auth/email-already-in-use'
           ? 'Email already exists — that address already has an account. Sign in instead, or use Continue with Google if that is how you signed up.'
           : authError(e?.code),
@@ -133,7 +138,7 @@ export default function AdminAuth() {
   });
 
   const doSignIn = async () => {
-    if (!siEmail || !siPw) return setMsg({ text: 'Enter your email and password.', type: 'err' });
+    if (!siEmail || !siPw) return setMsg({ text: 'Enter your email or username, and your password.', type: 'err' });
     setLoading(true);
     try { await signIn(siEmail, siPw); } catch (e) { fail(e); }
     setLoading(false);
@@ -141,6 +146,7 @@ export default function AdminAuth() {
 
   const doRegister = async () => {
     if (!rUser || !rEmail || !rPw || !rPw2) return setMsg({ text: 'Fill in all fields.', type: 'err' });
+    if (uCheck.state === 'taken' || uCheck.state === 'invalid') return setMsg({ text: uCheck.message, type: 'err' });
     if (rPw !== rPw2) return setMsg({ text: 'Passwords do not match.', type: 'err' });
     if (rPw.length < 8) return setMsg({ text: 'Use at least 8 characters for an admin password.', type: 'err' });
     setLoading(true);
@@ -155,10 +161,10 @@ export default function AdminAuth() {
   };
 
   const doReset = async () => {
-    if (!siEmail) return setMsg({ text: 'Enter your email first, then tap reset.', type: 'err' });
+    if (!siEmail) return setMsg({ text: 'Enter your email or username first, then tap reset.', type: 'err' });
     setLoading(true);
     try { await resetPassword(siEmail); setMsg({ text: 'Reset link sent — check your inbox.', type: 'ok' }); }
-    catch (e: any) { setMsg({ text: authError(e?.code), type: 'err' }); }
+    catch (e) { fail(e); }
     setLoading(false);
   };
 
@@ -175,8 +181,8 @@ export default function AdminAuth() {
             <GoogleIcon />Continue with Google
           </button>
           <div className="divider"><span>or use email &amp; password</span></div>
-          <Field label="Email address">
-            <input type="email" value={siEmail} onChange={e => setSiEmail(e.target.value)} placeholder="you@traqi.app" autoComplete="username" />
+          <Field label="Email or username">
+            <input value={siEmail} onChange={e => setSiEmail(e.target.value)} placeholder="you@traqi.app" autoComplete="username" />
           </Field>
           <div className="field" style={{ marginTop: 14 }}>
             <label className="label">Password</label>
@@ -200,7 +206,9 @@ export default function AdminAuth() {
             <GoogleIcon />Continue with Google
           </button>
           <div className="divider"><span>or register with email</span></div>
-          <Field label="Username"><input value={rUser} onChange={e => setRUser(e.target.value)} placeholder="jola" /></Field>
+          <Field label="Username" hint="No spaces. Unique across Traqi — you can sign in with it too.">
+            <UsernameInput value={rUser} onChange={setRUser} check={uCheck} placeholder="jola" />
+          </Field>
           <div className="field" style={{ marginTop: 14 }}>
             <label className="label">Email address</label>
             <input type="email" value={rEmail} onChange={e => setREmail(e.target.value)} placeholder="you@traqi.app" />

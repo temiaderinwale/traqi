@@ -1,19 +1,32 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Pencil, Plus, Receipt, Trash2 } from 'lucide-react';
+import { CalendarDays, CreditCard, Megaphone, Pencil, Plus, Receipt, Trash2, X } from 'lucide-react';
 import { useTraqi, useMoney } from '@/lib/store';
 import { useFabAction } from '@/lib/fab';
 import { getOrders } from '@/lib/compute';
-import { fmtDate, marginClass } from '@/lib/format';
+import { fmtDate, marginClass, todayStr } from '@/lib/format';
+import { smartFilter } from '@/lib/search';
 import { PageHead, TableWrap, EmptyState, Badge } from '@/components/ui';
 import { SaleForm, ReceiptModal } from '@/components/SaleForm';
+import { OptionSelect } from '@/components/Dropdown';
+
+type DateMode = '' | 'today' | 'day' | 'range';
+const DATE_MODES = [
+  { value: 'today', label: 'Today' },
+  { value: 'day', label: 'Specific date', sub: 'Sales from one day' },
+  { value: 'range', label: 'Date range', sub: 'Everything from one date to another' }
+];
 
 export default function SalesPage() {
   const { ws, isOwner, can, save, log, showToast } = useTraqi();
   const money = useMoney();
   const params = useSearchParams();
-  const [q, setQ] = useState(''); const [status, setStatus] = useState(''); const [channel, setChannel] = useState(''); const [date, setDate] = useState('');
+  const [q, setQ] = useState(''); const [status, setStatus] = useState(''); const [channel, setChannel] = useState('');
+  /* Dates are ISO strings (YYYY-MM-DD), so they compare correctly as text. */
+  const [dateMode, setDateMode] = useState<DateMode>('');
+  const [day, setDay] = useState(todayStr());
+  const [from, setFrom] = useState(''); const [to, setTo] = useState('');
   const [form, setForm] = useState(false); const [editId, setEditId] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<string | null>(null);
   useFabAction(() => { setEditId(null); setForm(true); });
@@ -21,10 +34,24 @@ export default function SalesPage() {
   useEffect(() => { if (params.get('new')) { setEditId(null); setForm(true); } }, [params]);
 
   let orders = getOrders(ws);
-  if (q) orders = orders.filter(o => o.custName.toLowerCase().includes(q.toLowerCase()) || o.lines.some(l => l.prodName.toLowerCase().includes(q.toLowerCase())));
+  if (q) orders = smartFilter(orders, q, o => `${o.custName} ${o.recNum || ''} ${o.lines.map(l => l.prodName).join(' ')}`);
   if (status) orders = orders.filter(o => o.status === status);
   if (channel) orders = orders.filter(o => o.channel === channel);
-  if (date) orders = orders.filter(o => o.date === date);
+  if (dateMode === 'today') orders = orders.filter(o => o.date === todayStr());
+  if (dateMode === 'day' && day) orders = orders.filter(o => o.date === day);
+  if (dateMode === 'range' && (from || to)) {
+    /* Either end may be left open; a backwards range is read the right way round. */
+    const [lo, hi] = from && to && from > to ? [to, from] : [from, to];
+    orders = orders.filter(o => (!lo || o.date >= lo) && (!hi || o.date <= hi));
+  }
+  const filtered = !!(q || status || channel || dateMode);
+  const shownTotal = orders.reduce((a, o) => a + o.lines.reduce((b, l) => b + l.qty * l.price, 0) - o.discount, 0);
+  const rangeLabel = dateMode === 'today' ? 'today'
+    : dateMode === 'day' && day ? 'on ' + fmtDate(day)
+    : dateMode === 'range' && (from || to)
+      ? (from && to ? `${fmtDate(from > to ? to : from)} – ${fmtDate(from > to ? from : to)}` : from ? 'from ' + fmtDate(from) : 'up to ' + fmtDate(to))
+      : '';
+  const clearFilters = () => { setQ(''); setStatus(''); setChannel(''); setDateMode(''); setFrom(''); setTo(''); setDay(todayStr()); };
 
   const remove = (orderId: string) => {
     if (!confirm('Delete this sale order? This cannot be undone.')) return;
@@ -39,10 +66,33 @@ export default function SalesPage() {
         actions={can('record_sales') ? <button className="btn btn-primary" onClick={() => { setEditId(null); setForm(true); }}><Plus />Record Sale</button> : null} />
       <div className="search-row">
         <input className="search-input" placeholder="Search customer or product…" value={q} onChange={e => setQ(e.target.value)} />
-        <select value={status} onChange={e => setStatus(e.target.value)}><option value="">All statuses</option>{['Paid', 'Pending', 'Part Payment'].map(s => <option key={s}>{s}</option>)}</select>
-        <select value={channel} onChange={e => setChannel(e.target.value)}><option value="">All channels</option>{['WhatsApp', 'Walk-in', 'Instagram', 'Phone', 'Referral', 'Other'].map(s => <option key={s}>{s}</option>)}</select>
-        <input type="date" value={date} onChange={e => setDate(e.target.value)} />
+        <OptionSelect value={status} onChange={setStatus} allLabel="All statuses" icon={CreditCard}
+          options={['Paid', 'Pending', 'Part Payment'].map(v => ({ value: v }))} />
+        <OptionSelect value={channel} onChange={setChannel} allLabel="All channels" icon={Megaphone}
+          options={['WhatsApp', 'Walk-in', 'Instagram', 'Phone', 'Referral', 'Other'].map(v => ({ value: v }))} />
+        <div className="date-filter">
+          <OptionSelect value={dateMode} onChange={v => setDateMode(v as DateMode)} allLabel="All dates" icon={CalendarDays}
+            options={DATE_MODES} />
+          {dateMode === 'day' && (
+            <input type="date" aria-label="Sale date" value={day} max={todayStr()} onChange={e => setDay(e.target.value)} />
+          )}
+          {dateMode === 'range' && <>
+            <input type="date" aria-label="From date" value={from} max={to || undefined} onChange={e => setFrom(e.target.value)} />
+            <span className="to">to</span>
+            <input type="date" aria-label="To date" value={to} min={from || undefined} onChange={e => setTo(e.target.value)} />
+          </>}
+        </div>
       </div>
+      {filtered && (
+        <div className="filter-sum">
+          <span><strong>{orders.length}</strong> order{orders.length === 1 ? '' : 's'}{rangeLabel ? ' ' + rangeLabel : ''}</span>
+          <span>·</span>
+          <span><strong>{money(shownTotal)}</strong> total</span>
+          <button className="link-btn" onClick={clearFilters} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+            <X style={{ width: 13, height: 13 }} />Clear filters
+          </button>
+        </div>
+      )}
       {orders.length ? (
         <TableWrap head={<tr><th>Receipt</th><th>Date</th><th>Customer</th><th>Products</th><th className="num">Qty</th><th className="num">Total</th>{isOwner && <th className="num">Profit</th>}<th>Channel</th><th>Status</th><th /></tr>}>
           {orders.map(o => {

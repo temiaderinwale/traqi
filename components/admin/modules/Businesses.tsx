@@ -4,6 +4,7 @@
 import React, { useMemo, useState } from 'react';
 import { Building2, FileDown, Search, X } from 'lucide-react';
 import { Card, TableWrap, Badge, Kpi, KpiGrid } from '@/components/ui';
+import { OptionSelect } from '@/components/Dropdown';
 import { usePlatform } from '../platform';
 import { ActivityBadge, PlanBadge, Loading, Th, count, naira, since, shortDate, sortRows } from '../bits';
 import { useAdmin } from '@/lib/adminStore';
@@ -106,17 +107,15 @@ export default function Businesses() {
           <input className="search-input" style={{ width: '100%', paddingLeft: 36 }} placeholder="Search business, owner, email or UID"
             value={q} onChange={e => setQ(e.target.value)} />
         </div>
-        <select value={plan} onChange={e => setPlan(e.target.value as any)}>
-          <option value="">All plans</option>
-          {PLANS.map(p => <option key={p} value={p}>{PLAN_LABEL[p]}</option>)}
-        </select>
-        <select value={state} onChange={e => setState(e.target.value as any)}>
-          <option value="">Any activity</option>
-          <option value="active">Active (30 days)</option>
-          <option value="quiet">Quiet (30–90 days)</option>
-          <option value="dormant">Dormant (90+ days)</option>
-          <option value="suspended">Suspended</option>
-        </select>
+        <OptionSelect value={plan} onChange={v => setPlan(v as any)} allLabel="All plans"
+          options={PLANS.map(p => ({ value: p, label: PLAN_LABEL[p] }))} />
+        <OptionSelect value={state} onChange={v => setState(v as any)} allLabel="Any activity"
+          options={[
+            { value: 'active', label: 'Active', sub: 'Last 30 days' },
+            { value: 'quiet', label: 'Quiet', sub: '30–90 days' },
+            { value: 'dormant', label: 'Dormant', sub: '90+ days' },
+            { value: 'suspended', label: 'Suspended' }
+          ]} />
         <button className="btn btn-secondary btn-sm" onClick={exportCsv}><FileDown />Export CSV</button>
       </div>
 

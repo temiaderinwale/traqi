@@ -9,6 +9,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { AlertCircle, CheckCircle2, Loader2, PartyPopper, Send } from 'lucide-react';
+import { OptionSelect } from '@/components/Dropdown';
 import {
   BLANK_SIGNUP, BUSINESS_CATEGORIES, LIMITS, OTHER_CATEGORY, WHATSAPP_DISPLAY,
   isEmail, isPhone, signupMessage, submitPilotSignup, whatsappLink, type PilotSignup
@@ -130,6 +131,12 @@ export default function PilotForm() {
      submit, keeps a long form from feeling like it is scolding you. */
   const set = (k: keyof PilotSignup) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const v = e.target.value;
+    setF(p => ({ ...p, [k]: v }));
+    setErrors(p => (p[k] ? { ...p, [k]: undefined } : p));
+  };
+
+  /* The same, for the category picker, which hands back a value, not an event. */
+  const choose = (k: keyof PilotSignup) => (v: string) => {
     setF(p => ({ ...p, [k]: v }));
     setErrors(p => (p[k] ? { ...p, [k]: undefined } : p));
   };
@@ -261,10 +268,10 @@ export default function PilotForm() {
 
               <div>
                 <Label htmlFor="p-category">Category of business</Label>
-                <select id="p-category" value={f.category} onChange={set('category')} {...invalid('category')}>
-                  <option value="">Select your category…</option>
-                  {BUSINESS_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
+                <OptionSelect id="p-category" value={f.category} onChange={choose('category')}
+                  placeholder="Select your category…" searchPlaceholder="Search categories…"
+                  invalid={!!errors.category} triggerClassName={invalid('category').className}
+                  options={BUSINESS_CATEGORIES.map(c => ({ value: c }))} />
                 <Err msg={errors.category} />
                 {f.category === OTHER_CATEGORY && (
                   <div className="pilot-pop mt-3">

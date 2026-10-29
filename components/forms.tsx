@@ -3,17 +3,34 @@
 
 import React, { useEffect, useState } from 'react';
 import {
-  Package, UserPlus, Truck, Wallet, Hourglass, Eye, EyeOff, Lock, RotateCcw, Boxes, Target, ListChecks, Send, MessageSquare
+  Package, UserPlus, Truck, Wallet, Hourglass, Eye, EyeOff, Lock, RotateCcw, Boxes, Target, ListChecks, Send, MessageSquare,
+  User, Tag, CreditCard, CalendarDays, Flag, Users
 } from 'lucide-react';
 import { useTraqi } from '@/lib/store';
 import { nextId, todayStr } from '@/lib/format';
 import { PERMISSIONS, APPROVAL_REQUIRED } from '@/lib/compute';
 import { UsernameTaken, releaseUsername, reserveUsername, usernameKey } from '@/lib/usernames';
+import { UsernameInput, useUsernameCheck } from './UsernameField';
 import { Modal, Field } from './ui';
 import CategorySelect, { CustomerSourceSelect, CustomerTypeSelect } from './CategorySelect';
+import { MultiSelect, OptionSelect } from './Dropdown';
+import type { Option } from './Dropdown';
 import type { Product, Customer, Supplier, Expense, Debt, Assistant } from '@/lib/types';
 
 type FormProps<T> = { open: boolean; onClose: () => void; editing?: T | null };
+
+/* Pickers for the workspace's own records — searchable by any part of a name. */
+const customerOptions = (list: Customer[]): Option[] => list.map(c => ({
+  value: c.id, label: c.name, sub: [c.phone, c.city].filter(Boolean).join(' · ') || undefined,
+  keywords: [c.phone, c.wa, c.insta, c.city].filter(Boolean).join(' ')
+}));
+const productOptions = (list: Product[]): Option[] => list.map(p => ({
+  value: p.id, label: p.name, sub: [p.cat, p.size].filter(Boolean).join(' · ') || undefined
+}));
+
+const EXPENSE_CATS = ['Packaging', 'Delivery / Logistics', 'Marketing / Ads', 'Airtime / Data', 'Rent / Market Fee', 'Staff / Labour', 'Equipment', 'Other'];
+const PAID_BY = ['Owner', 'Business Account', 'Cash', 'Transfer'];
+const RETURN_ACTIONS = ['Full Refund', 'Exchange', 'Store Credit', 'No Refund'];
 
 /* PINs are typed fresh — password managers refill any password box on sight. */
 const NO_AUTOFILL = {
@@ -66,9 +83,11 @@ export function ProductForm({ open, onClose, editing }: FormProps<Product>) {
         <Field label="Usage days *" hint="Drives follow-up dates"><input type="number" value={f.usageDays} onChange={set('usageDays')} placeholder="30" /></Field>
         <Field label="Opening stock *"><input type="number" value={f.stock} onChange={set('stock')} placeholder="20" /></Field>
         <Field label="Reorder level"><input type="number" value={f.reorder} onChange={set('reorder')} placeholder="5" /></Field>
-        <Field label="Supplier"><select value={f.supplier} onChange={set('supplier')}>
-          <option value="">None</option>{ws.suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select></Field>
+        <Field label="Supplier">
+          <OptionSelect value={f.supplier} onChange={supplier => setF((p: any) => ({ ...p, supplier }))} allLabel="None" icon={Truck}
+            searchPlaceholder="Search suppliers…"
+            options={ws.suppliers.map(s => ({ value: s.id, label: s.name, sub: s.products || undefined, keywords: s.phone }))} />
+        </Field>
         <Field label="Notes" full><input value={f.notes} onChange={set('notes')} placeholder="Any notes…" /></Field>
       </div>
     </Modal>
@@ -135,9 +154,11 @@ export function CustomerForm({ open, onClose, editing }: FormProps<Customer>) {
           <Field label="Source">
             <CustomerSourceSelect value={f.source} onChange={source => setF((p: any) => ({ ...p, source }))} />
           </Field>
-          <Field label="Referred by"><select value={f.refby} onChange={set('refby')}>
-            <option value="">None</option>{ws.customers.filter(c => c.id !== editing?.id).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select></Field>
+          <Field label="Referred by">
+            <OptionSelect value={f.refby} onChange={refby => setF((p: any) => ({ ...p, refby }))} allLabel="None" icon={User}
+              search searchPlaceholder="Search any part of a name or phone…" emptyText="No customer matches"
+              options={customerOptions(ws.customers.filter(c => c.id !== editing?.id))} />
+          </Field>
           <Field label="Scent preferences" full><input value={f.scent} onChange={set('scent')} placeholder="e.g. Oud, rose, warm scents" /></Field>
           <Field label="Notes" full><input value={f.notes} onChange={set('notes')} placeholder="Notes…" /></Field>
         </div>
@@ -199,13 +220,16 @@ export function ExpenseForm({ open, onClose, editing }: FormProps<Expense>) {
       actions={<><button className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={submit}>Save</button></>}>
       <div className="form-grid">
         <Field label="Date *"><input type="date" value={f.date} onChange={set('date')} /></Field>
-        <Field label="Category *"><select value={f.cat} onChange={set('cat')}>
-          <option value="">Select…</option>
-          {['Packaging', 'Delivery / Logistics', 'Marketing / Ads', 'Airtime / Data', 'Rent / Market Fee', 'Staff / Labour', 'Equipment', 'Other'].map(c => <option key={c}>{c}</option>)}
-        </select></Field>
+        <Field label="Category *">
+          <OptionSelect value={f.cat} onChange={cat => setF((p: any) => ({ ...p, cat }))} placeholder="Select a category…" icon={Tag}
+            options={EXPENSE_CATS.map(v => ({ value: v }))} />
+        </Field>
         <Field label="Description *" full><input value={f.desc} onChange={set('desc')} placeholder="e.g. 50 gift boxes" /></Field>
         <Field label="Amount (₦) *"><input type="number" value={f.amt} onChange={set('amt')} placeholder="5000" /></Field>
-        <Field label="Paid by"><select value={f.by} onChange={set('by')}>{['Owner', 'Business Account', 'Cash', 'Transfer'].map(b => <option key={b}>{b}</option>)}</select></Field>
+        <Field label="Paid by">
+          <OptionSelect value={f.by} onChange={by => setF((p: any) => ({ ...p, by }))} icon={CreditCard}
+            options={PAID_BY.map(v => ({ value: v }))} />
+        </Field>
       </div>
     </Modal>
   );
@@ -235,9 +259,11 @@ export function DebtForm({ open, onClose, editing }: FormProps<Debt>) {
       actions={<><button className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={submit}>Save</button></>}>
       <div className="form-grid">
         <Field label="Date *"><input type="date" value={f.date} onChange={set('date')} /></Field>
-        <Field label="Customer *"><select value={f.custId} onChange={set('custId')}>
-          <option value="">Select…</option>{ws.customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select></Field>
+        <Field label="Customer *">
+          <OptionSelect value={f.custId} onChange={custId => setF((p: any) => ({ ...p, custId }))} placeholder="Select a customer…" icon={User}
+            search searchPlaceholder="Search any part of a name or phone…" emptyText="No customer matches"
+            options={customerOptions(ws.customers)} />
+        </Field>
         <Field label="Product / description" full><input value={f.prod} onChange={set('prod')} placeholder="What was bought" /></Field>
         <Field label="Total (₦) *"><input type="number" value={f.total} onChange={set('total')} placeholder="8500" /></Field>
         <Field label="Paid (₦)"><input type="number" value={f.paid} onChange={set('paid')} /></Field>
@@ -272,17 +298,22 @@ export function ReturnForm({ open, onClose }: { open: boolean; onClose: () => vo
       actions={<><button className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={submit}>Log Return</button></>}>
       <div className="form-grid">
         <Field label="Date *"><input type="date" value={f.date} onChange={set('date')} /></Field>
-        <Field label="Customer"><select value={f.custId} onChange={set('custId')}>
-          <option value="">Select…</option>{ws.customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select></Field>
-        <Field label="Product *" full><select value={f.prodId} onChange={set('prodId')}>
-          <option value="">Select…</option>{ws.products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select></Field>
+        <Field label="Customer">
+          <OptionSelect value={f.custId} onChange={custId => setF((p: any) => ({ ...p, custId }))} allLabel="Walk-in / not recorded" icon={User}
+            search searchPlaceholder="Search any part of a name or phone…" emptyText="No customer matches"
+            options={customerOptions(ws.customers)} />
+        </Field>
+        <Field label="Product *" full>
+          <OptionSelect value={f.prodId} onChange={prodId => setF((p: any) => ({ ...p, prodId }))} placeholder="Select a product…" icon={Package}
+            search searchPlaceholder="Search products…" emptyText="No product matches"
+            options={productOptions(ws.products)} />
+        </Field>
         <Field label="Qty *"><input type="number" min={1} value={f.qty} onChange={set('qty')} /></Field>
         <Field label="Refund (₦)"><input type="number" value={f.amt} onChange={set('amt')} placeholder="0" /></Field>
-        <Field label="Action"><select value={f.action} onChange={set('action')}>
-          {['Full Refund', 'Exchange', 'Store Credit', 'No Refund'].map(a => <option key={a}>{a}</option>)}
-        </select></Field>
+        <Field label="Action">
+          <OptionSelect value={f.action} onChange={action => setF((p: any) => ({ ...p, action }))} icon={RotateCcw}
+            options={RETURN_ACTIONS.map(v => ({ value: v }))} />
+        </Field>
         <Field label="Reason *" full><input value={f.reason} onChange={set('reason')} placeholder="e.g. Wrong fragrance" /></Field>
       </div>
     </Modal>
@@ -311,9 +342,11 @@ export function RestockForm({ open, onClose }: { open: boolean; onClose: () => v
     <Modal open={open} onClose={onClose} title="Restock" icon={Boxes} narrow
       actions={<><button className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={submit}>Confirm</button></>}>
       <div style={{ display: 'grid', gap: 14 }}>
-        <Field label="Product *"><select value={f.prodId} onChange={e => setF({ ...f, prodId: e.target.value })}>
-          <option value="">Select…</option>{ws.products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select></Field>
+        <Field label="Product *">
+          <OptionSelect value={f.prodId} onChange={prodId => setF(p => ({ ...p, prodId }))} placeholder="Select a product…" icon={Package}
+            search searchPlaceholder="Search products…" emptyText="No product matches"
+            options={productOptions(ws.products)} />
+        </Field>
         <Field label="Units *"><input type="number" min={1} value={f.qty} onChange={e => setF({ ...f, qty: e.target.value })} placeholder="20" /></Field>
         <Field label="Date"><input type="date" value={f.date} onChange={e => setF({ ...f, date: e.target.value })} /></Field>
       </div>
@@ -343,9 +376,10 @@ export function TargetForm({ open, onClose }: { open: boolean; onClose: () => vo
     <Modal open={open} onClose={onClose} title="Monthly Target" icon={Target} narrow
       actions={<><button className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={submit}>Set Target</button></>}>
       <div className="form-grid">
-        <Field label="Month"><select value={m} onChange={e => setM(parseInt(e.target.value))}>
-          {months.map((mo, i) => <option key={mo} value={i}>{mo}</option>)}
-        </select></Field>
+        <Field label="Month">
+          <OptionSelect value={String(m)} onChange={v => setM(parseInt(v))} icon={CalendarDays} search={false}
+            options={months.map((mo, i) => ({ value: String(i), label: mo }))} />
+        </Field>
         <Field label="Target (₦) *"><input type="number" value={amt} onChange={e => setAmt(e.target.value)} placeholder="500000" /></Field>
       </div>
     </Modal>
@@ -369,12 +403,17 @@ export function AssistantForm({ open, onClose, editing }: FormProps<Assistant>) 
     setShowPin(false); setShowPin2(false);
   }, [editing, open]);
   const pinMismatch = f.pin2.length > 0 && !f.pin.startsWith(f.pin2);
+  const uCheck = useUsernameCheck(f.name, {
+    original: editing?.name, mine: editing ? { assistantId: editing.id } : undefined,
+    enabled: open && !editing?.accountUid
+  });
   const toggle = (k: string) => setPerms(p => (p.includes(k) ? p.filter(x => x !== k) : [...p, k]));
   const submit = async () => {
     /* The Team page is already gated by tier; this is the same rule at the
        point of write, so no route can slip an assistant past it. */
     if (!hasFeature('team')) { showToast(`Team members are on Pro — ${tier.name} doesn't include them`); return; }
     if (!f.name) { showToast('Enter the assistant name'); return; }
+    if (!editing?.accountUid && !uCheck.ok) { showToast(uCheck.message || 'Checking that username — try again in a moment'); return; }
     /* Phone and email are what the invitation travels on, so both are required. */
     if (!f.phone.trim()) { showToast('A phone number is required — the invite goes out on WhatsApp'); return; }
     const email = f.email.trim().toLowerCase();
@@ -431,8 +470,8 @@ export function AssistantForm({ open, onClose, editing }: FormProps<Assistant>) 
         <Field label="Assistant username *"
           hint={editing?.accountUid
             ? 'Fixed — they already sign in with this username'
-            : "What they'll be known by — and can sign in with. Must be unique across Traqi."}>
-          <input value={f.name} onChange={e => setF({ ...f, name: e.target.value })}
+            : "What they'll be known by — and can sign in with. No spaces, and unique across Traqi."}>
+          <UsernameInput value={f.name} onChange={name => setF((p: any) => ({ ...p, name }))} check={uCheck}
             placeholder="e.g. Blessing" disabled={!!editing?.accountUid} />
         </Field>
         <Field label="Phone *" hint="Used to send the invite on WhatsApp">
@@ -514,15 +553,15 @@ export function TaskForm({ open, onClose }: { open: boolean; onClose: () => void
       <div className="form-grid">
         <Field label="Task title *" full><input value={f.title} onChange={e => setF({ ...f, title: e.target.value })} placeholder="e.g. Arrange the new stock display" /></Field>
         <Field label="Description" full><textarea value={f.description} onChange={e => setF({ ...f, description: e.target.value })} placeholder="Detailed instructions…" /></Field>
-        <Field label="Assign to *" hint="Hold Ctrl / Cmd to select several">
-          <select multiple style={{ minHeight: 92 }} value={f.assignedTo}
-            onChange={e => setF({ ...f, assignedTo: Array.from(e.target.selectedOptions).map(o => o.value) })}>
-            {ws.assistants.filter(a => a.active !== false).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
+        <Field label="Assign to *" hint="Tick everyone this task is for">
+          <MultiSelect values={f.assignedTo} onChange={assignedTo => setF((p: any) => ({ ...p, assignedTo }))}
+            placeholder="Select assistants…" icon={User} searchPlaceholder="Search assistants…"
+            options={ws.assistants.filter(a => a.active !== false).map(a => ({ value: a.id, label: a.name }))} />
         </Field>
-        <Field label="Priority"><select value={f.priority} onChange={e => setF({ ...f, priority: e.target.value })}>
-          <option value="normal">Normal</option><option value="urgent">Urgent</option>
-        </select></Field>
+        <Field label="Priority">
+          <OptionSelect value={f.priority} onChange={priority => setF((p: any) => ({ ...p, priority }))} icon={Flag}
+            options={[{ value: 'normal', label: 'Normal' }, { value: 'urgent', label: 'Urgent' }]} />
+        </Field>
         <Field label="Due date"><input type="date" value={f.dueDate} onChange={e => setF({ ...f, dueDate: e.target.value })} /></Field>
       </div>
     </Modal>
@@ -554,18 +593,14 @@ export function MessageForm({ open, onClose }: { open: boolean; onClose: () => v
     <Modal open={open} onClose={onClose} title="New Message" icon={Send} narrow
       actions={<><button className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={submit}>Send</button></>}>
       <div style={{ display: 'grid', gap: 14 }}>
-        <Field label="To *"><select value={to} onChange={e => setTo(e.target.value)}>
-          <option value="">Select recipient…</option>
-          {isOwner
-            ? <>
-                <option value="all_assistants">All assistants (broadcast)</option>
-                {ws.assistants.filter(a => a.active !== false).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </>
-            : <>
-                <option value="owner">Owner ({ws.config.ownerName})</option>
-                {ws.assistants.filter(a => a.active !== false && a.id !== user.id).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </>}
-        </select></Field>
+        <Field label="To *">
+          <OptionSelect value={to} onChange={setTo} placeholder="Select recipient…" icon={Users}
+            options={isOwner
+              ? [{ value: 'all_assistants', label: 'All assistants', sub: 'Broadcast to the whole team' },
+                 ...ws.assistants.filter(a => a.active !== false).map(a => ({ value: a.id, label: a.name }))]
+              : [{ value: 'owner', label: ws.config.ownerName || 'Owner', sub: 'Owner' },
+                 ...ws.assistants.filter(a => a.active !== false && a.id !== user.id).map(a => ({ value: a.id, label: a.name }))]} />
+        </Field>
         <Field label="Message *"><textarea value={text} onChange={e => setText(e.target.value)} placeholder="Type your message…" style={{ minHeight: 110 }} /></Field>
       </div>
     </Modal>

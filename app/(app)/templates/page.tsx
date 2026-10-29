@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Clipboard, MessageCircle } from 'lucide-react';
 import { useTraqi, useMoney } from '@/lib/store';
 import { PageHead, Card, Badge } from '@/components/ui';
+import { OptionSelect } from '@/components/Dropdown';
 
 const TEMPLATES = [
   { tag: 'Follow-Up', text: "Hi [Name]!\n\nIt's been about [X] days since you got your *[Product]* from us.\n\nAre you running low? Reply to reorder!\n\n— [Business Name]" },
@@ -50,11 +51,11 @@ export default function TemplatesPage() {
               <button className="btn btn-primary btn-sm" onClick={() => copy(i)}><Clipboard />Copy</button>
               <a className="btn btn-wa btn-sm" target="_blank" rel="noreferrer"
                 href={'https://wa.me/?text=' + encodeURIComponent(filled[i] || t.text)}><MessageCircle />WhatsApp</a>
-              <select style={{ width: 'auto', minWidth: 150, fontSize: '.75rem', padding: '.4rem .6rem' }}
-                onChange={e => { fill(i, e.target.value); e.target.value = ''; }}>
-                <option value="">Fill for customer…</option>
-                {ws.customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <div style={{ minWidth: 170 }}>
+                <OptionSelect size="sm" value="" onChange={id => fill(i, id)} placeholder="Fill for customer…"
+                  search searchPlaceholder="Search any part of a name…" emptyText="No customer matches"
+                  options={ws.customers.map(c => ({ value: c.id, label: c.name, sub: c.phone || undefined, keywords: c.city }))} />
+              </div>
             </div>
           </Card>
         ))}

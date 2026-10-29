@@ -2,15 +2,23 @@
 /* Traqi — sale builder + receipt */
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Plus, Receipt, ShoppingCart, X, Printer, ImageDown, MessageCircle, Clipboard } from 'lucide-react';
+import { Plus, Receipt, ShoppingCart, X, Printer, ImageDown, MessageCircle, Clipboard, Star, CreditCard, Megaphone } from 'lucide-react';
 import { useTraqi, useMoney } from '@/lib/store';
 import { nextId, todayStr, fmtDate, waLink } from '@/lib/format';
-import { getOrders } from '@/lib/compute';
+import { getOrders, getInventory } from '@/lib/compute';
+import { smartFilter } from '@/lib/search';
 import { Modal, Field } from './ui';
+import { ComboBox, OptionSelect } from './Dropdown';
 import type { Sale } from '@/lib/types';
 
-type Line = { key: string; prodId: string; search: string; qty: string; price: string; open: boolean };
-const newLine = (): Line => ({ key: Math.random().toString(36).slice(2), prodId: '', search: '', qty: '1', price: '', open: false });
+type Line = { key: string; prodId: string; search: string; qty: string; price: string };
+const newLine = (): Line => ({ key: Math.random().toString(36).slice(2), prodId: '', search: '', qty: '1', price: '' });
+
+const STATUSES = ['Paid', 'Pending', 'Part Payment'];
+const CHANNELS = ['WhatsApp', 'Walk-in', 'Instagram', 'Phone', 'Referral', 'Other'];
+
+/* The star that marks a business's own best sellers in the product list. */
+const TopMark = () => <span className="top-mark" title="One of your best sellers"><Star /></span>;
 
 export function SaleForm({ open, onClose, editOrderId, onSaved }: {
   open: boolean; onClose: () => void; editOrderId?: string | null;
@@ -21,7 +29,6 @@ export function SaleForm({ open, onClose, editOrderId, onSaved }: {
   const [date, setDate] = useState(todayStr());
   const [custId, setCustId] = useState('');
   const [custSearch, setCustSearch] = useState('');
-  const [custOpen, setCustOpen] = useState(false);
   const [status, setStatus] = useState('Paid');
   const [channel, setChannel] = useState('WhatsApp');
   const [notes, setNotes] = useState('');
@@ -44,7 +51,7 @@ export function SaleForm({ open, onClose, editOrderId, onSaved }: {
         setReceiptNote(f.receiptNote || '');
         setDiscVal(String(items.reduce((a, i) => a + (i.discount || 0), 0) || ''));
         setDiscType('fixed');
-        setLines(items.map(i => ({ key: i.id, prodId: i.prodId, search: i.prodName, qty: String(i.qty), price: String(i.price), open: false })));
+        setLines(items.map(i => ({ key: i.id, prodId: i.prodId, search: i.prodName, qty: String(i.qty), price: String(i.price) })));
       }
     } else {
       setDate(todayStr()); setCustId(''); setCustSearch(''); setStatus('Paid'); setChannel('WhatsApp');
@@ -55,6 +62,26 @@ export function SaleForm({ open, onClose, editOrderId, onSaved }: {
 
   const owed = useMemo(() => ws.debts.filter(d => d.custId === custId && d.status !== 'Cleared')
     .reduce((a, d) => a + (d.total - d.paid), 0), [ws.debts, custId]);
+
+  /* The two products this business sells most of, by units — they lead the
+     product list, starred, so the usual sale is one tap away. */
+  const topIds = useMemo(() => {
+    const units: Record<string, number> = {};
+    ws.sales.forEach(s => { units[s.prodId] = (units[s.prodId] || 0) + (s.qty || 0); });
+    return Object.keys(units)
+      .filter(id => units[id] > 0 && ws.products.some(p => p.id === id))
+      .sort((a, b) => units[b] - units[a])
+      .slice(0, 2);
+  }, [ws.sales, ws.products]);
+  const productOrder = useMemo(() => [
+    ...topIds.map(id => ws.products.find(p => p.id === id)!),
+    ...ws.products.filter(p => !topIds.includes(p.id))
+  ], [ws.products, topIds]);
+  const stockLeft = useMemo(() => {
+    const m: Record<string, number> = {};
+    getInventory(ws).forEach(r => { m[r.id] = r.current; });
+    return m;
+  }, [ws]);
 
   const subtotal = lines.reduce((a, l) => a + (parseFloat(l.qty) || 0) * (parseFloat(l.price) || 0), 0);
   const discount = Math.min(subtotal, discType === 'percent' ? Math.round(subtotal * (parseFloat(discVal) || 0) / 100) : (parseFloat(discVal) || 0));
@@ -115,8 +142,10 @@ export function SaleForm({ open, onClose, editOrderId, onSaved }: {
   };
 
   if (!open) return null;
-  const custMatches = ws.customers.filter(c =>
-    !custSearch || c.name.toLowerCase().includes(custSearch.toLowerCase()));
+  /* Once a customer is picked, reopening the list shows everyone again. */
+  const custMatches = custId && custSearch === ws.customers.find(c => c.id === custId)?.name
+    ? ws.customers
+    : smartFilter(ws.customers, custSearch, c => `${c.name} ${c.phone || ''} ${c.city || ''}`);
 
   return (
     <Modal open={open} onClose={onClose} title={editOrderId ? 'Edit Sale' : 'Record Sale'} icon={ShoppingCart} wide
@@ -124,32 +153,28 @@ export function SaleForm({ open, onClose, editOrderId, onSaved }: {
         <button className="btn btn-primary" onClick={submit}><Receipt />Save &amp; generate receipt</button></>}>
       <div className="form-grid" style={{ marginBottom: 16 }}>
         <Field label="Sale date *"><input type="date" value={date} onChange={e => setDate(e.target.value)} /></Field>
-        <Field label="Payment status"><select value={status} onChange={e => setStatus(e.target.value)}>
-          {['Paid', 'Pending', 'Part Payment'].map(s => <option key={s}>{s}</option>)}
-        </select></Field>
+        <Field label="Payment status">
+          <OptionSelect value={status} onChange={setStatus} icon={CreditCard} options={STATUSES.map(v => ({ value: v }))} />
+        </Field>
         <div className="field full">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <label className="label">Customer *</label>
             <button className="link-btn" onClick={() => setInlineCust(v => !v)}>+ New customer</button>
           </div>
-          <div className="ss-wrap">
-            <input value={custSearch} placeholder="Type to search customer…"
-              onChange={e => { setCustSearch(e.target.value); setCustId(''); setCustOpen(true); }}
-              onFocus={() => setCustOpen(true)} onBlur={() => setTimeout(() => setCustOpen(false), 200)} />
-            {custOpen && (
-              <div className="ss-drop open">
-                {custMatches.length ? custMatches.slice(0, 50).map(c => {
-                  const debt = ws.debts.filter(d => d.custId === c.id && d.status !== 'Cleared').reduce((a, d) => a + (d.total - d.paid), 0);
-                  return (
-                    <div className="ss-opt" key={c.id} onMouseDown={() => { setCustId(c.id); setCustSearch(c.name); setCustOpen(false); }}>
-                      <div className="ss-name">{c.name}</div>
-                      <div className="ss-sub">{c.city || c.type}{debt > 0 ? ' · owes ' + money(debt) : ''}</div>
-                    </div>
-                  );
-                }) : <div className="ss-opt ss-none">No results found</div>}
-              </div>
-            )}
-          </div>
+          <ComboBox text={custSearch} placeholder="Type any part of a name or phone…"
+            onText={v => { setCustSearch(v); setCustId(''); }}
+            empty="No customer matches — use + New customer"
+            rows={custMatches.slice(0, 60).map(c => {
+              const debt = ws.debts.filter(d => d.custId === c.id && d.status !== 'Cleared').reduce((a, d) => a + (d.total - d.paid), 0);
+              return {
+                key: c.id, className: c.id === custId ? 'on' : '',
+                pick: () => { setCustId(c.id); setCustSearch(c.name); },
+                content: <>
+                  <div className="ss-name">{c.name}</div>
+                  <div className="ss-sub">{[c.phone, c.city || c.type].filter(Boolean).join(' · ')}{debt > 0 ? ' · owes ' + money(debt) : ''}</div>
+                </>
+              };
+            })} />
           {owed > 0 && <div className="debt-warn show">Heads up — this customer still owes {money(owed)}.</div>}
         </div>
         {inlineCust && (
@@ -164,9 +189,9 @@ export function SaleForm({ open, onClose, editOrderId, onSaved }: {
             </div>
           </div>
         )}
-        <Field label="Sales channel"><select value={channel} onChange={e => setChannel(e.target.value)}>
-          {['WhatsApp', 'Walk-in', 'Instagram', 'Phone', 'Referral', 'Other'].map(c => <option key={c}>{c}</option>)}
-        </select></Field>
+        <Field label="Sales channel">
+          <OptionSelect value={channel} onChange={setChannel} icon={Megaphone} options={CHANNELS.map(v => ({ value: v }))} />
+        </Field>
         <Field label="Notes"><input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Order notes…" /></Field>
       </div>
 
@@ -179,27 +204,31 @@ export function SaleForm({ open, onClose, editOrderId, onSaved }: {
           </tr></thead>
           <tbody>
             {lines.map(l => {
-              const matches = ws.products.filter(p => !l.search || p.name.toLowerCase().includes(l.search.toLowerCase()));
+              /* A picked product shows the whole list again when reopened. */
+              const picked = ws.products.find(p => p.id === l.prodId);
+              const query = picked && picked.name === l.search ? '' : l.search;
+              const matches = smartFilter(productOrder, query, p => `${p.name} ${p.cat} ${p.size || ''}`);
               return (
                 <tr key={l.key}>
                   <td>
-                    <div className="ss-wrap">
-                      <input value={l.search} placeholder="Type to search product…"
-                        onChange={e => setLine(l.key, { search: e.target.value, prodId: '', open: true })}
-                        onFocus={() => setLine(l.key, { open: true })}
-                        onBlur={() => setTimeout(() => setLine(l.key, { open: false }), 200)} />
-                      {l.open && (
-                        <div className="ss-drop open">
-                          {matches.length ? matches.slice(0, 50).map(p => (
-                            <div className="ss-opt" key={p.id}
-                              onMouseDown={() => setLine(l.key, { prodId: p.id, search: p.name, price: String(p.price), open: false })}>
-                              <div className="ss-name">{p.name}</div>
-                              <div className="ss-sub">{p.cat} · {money(p.price)}</div>
+                    <ComboBox text={l.search} placeholder="Search product…" minWidth={280}
+                      onText={v => setLine(l.key, { search: v, prodId: '' })}
+                      empty="No products found"
+                      rows={matches.slice(0, 60).map(p => {
+                        const top = topIds.includes(p.id);
+                        const left = stockLeft[p.id] ?? 0;
+                        return {
+                          key: p.id, className: (top ? 'top-pick' : '') + (p.id === l.prodId ? ' on' : ''),
+                          pick: () => setLine(l.key, { prodId: p.id, search: p.name, price: String(p.price) }),
+                          content: <div className="ss-row">
+                            <div className="ss-row-main">
+                              <div className="ss-name">{p.name}{top && <TopMark />}</div>
+                              <div className="ss-sub">{[p.cat, p.size, left > 0 ? left + ' in stock' : 'out of stock'].filter(Boolean).join(' · ')}</div>
                             </div>
-                          )) : <div className="ss-opt ss-none">No products found</div>}
-                        </div>
-                      )}
-                    </div>
+                            <span className="ss-price">{money(p.price)}</span>
+                          </div>
+                        };
+                      })} />
                   </td>
                   <td><input type="number" min={1} value={l.qty} onChange={e => setLine(l.key, { qty: e.target.value })} /></td>
                   <td><input type="number" value={l.price} onChange={e => setLine(l.key, { price: e.target.value })} /></td>
@@ -218,9 +247,10 @@ export function SaleForm({ open, onClose, editOrderId, onSaved }: {
       <div className="disc-row" style={{ marginTop: 12 }}>
         <label>Discount</label>
         <input type="number" min={0} value={discVal} onChange={e => setDiscVal(e.target.value)} placeholder="0" />
-        <select value={discType} onChange={e => setDiscType(e.target.value as any)}>
-          <option value="fixed">₦ Fixed</option><option value="percent">% Percent</option>
-        </select>
+        <div style={{ width: 130 }}>
+          <OptionSelect size="sm" value={discType} onChange={v => setDiscType(v as 'fixed' | 'percent')}
+            options={[{ value: 'fixed', label: '₦ Fixed' }, { value: 'percent', label: '% Percent' }]} />
+        </div>
         {discount > 0 && <span className="pos" style={{ fontSize: '.84rem' }}>-{money(discount)}</span>}
       </div>
       <Field label="Receipt note (optional)"><input value={receiptNote} onChange={e => setReceiptNote(e.target.value)} placeholder="e.g. Thank you for your patronage!" /></Field>

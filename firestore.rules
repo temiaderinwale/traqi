@@ -130,8 +130,10 @@ service cloud.firestore {
 
     /* Username → email, so someone can sign in with a username. It has to be
        readable without a session, since the lookup happens before sign-in;
-       listing is closed, so usernames cannot be harvested. Claimed once, by
-       the account it belongs to, and never reassigned. */
+       listing is closed, so usernames cannot be harvested. One registry for
+       owners, assistants and console admins, so a name is unique across all
+       of Traqi. Claimed by the account it belongs to and never reassigned —
+       though its holder may move to a new name and let the old one go. */
     match /usernames/{name} {
       allow get: if true;
       allow list: if false;
@@ -151,11 +153,15 @@ service cloud.firestore {
         && resource.data.email == request.auth.token.email
         && request.resource.data.uid == request.auth.uid
         && changedKeys().hasOnly(['uid', 'claimedAt']);
-      /* An owner may free a reservation nobody has claimed — that is what a
-         rename does. A claimed name is never released or reassigned. */
-      allow delete: if signedIn()
-        && resource.data.uid == ''
-        && resource.data.reservedBy == request.auth.uid;
+      /* An owner may free a reservation nobody has claimed — that is what
+         renaming an assistant seat does. A claimed name is released only by
+         the account holding it, when they change to another username. */
+      allow delete: if signedIn() && (
+        (resource.data.uid == ''
+          && resource.data.reservedBy == request.auth.uid)
+        ||
+        resource.data.uid == request.auth.uid
+      );
     }
 
     /* How each address first signed up, so one address keeps one way in

@@ -9,7 +9,7 @@ import {
 } from 'firebase/auth';
 import {
   auth, saveWorkspace, loadWorkspace, storeBundle, loadBundle, rememberAccount,
-  loadCreds, saveCreds, redactSecrets, clearInlineSecrets
+  loadCreds, saveCreds, redactSecrets, clearInlineSecrets, moveBundle
 } from './firebase';
 import {
   Workspace, CollectionKey, COLLECTIONS, CUSTOMER_SOURCES, CUSTOMER_TYPES, DEFAULT_CONFIG, emptyWorkspace, CurrentUser, Config
@@ -21,7 +21,8 @@ import {
   AssistantLink, acceptInvite, createAssistantLink, getAssistantLink, getInvite, notifyOwnerOfJoin
 } from './invites';
 import {
-  UsernameTaken, claimUsername, isUsernameFree, lookupEmail, recordEmail, resolveToEmail
+  UsernameTaken, claimUsername, isUsernameFree, lookupEmail, recordEmail, renameUsername,
+  resolveToEmail, cleanUsername, usernameProblem
 } from './usernames';
 
 type Toast = { msg: string; undo?: () => void } | null;
@@ -80,6 +81,8 @@ type Ctx = {
   register: (email: string, pw: string, username: string, pin: string, biz: string) => Promise<void>;
   googleAuth: () => Promise<void>;
   completeGoogleProfile: (username: string, pin: string, biz: string) => Promise<void>;
+  /** Changes the owner's username everywhere it lives. Throws UsernameTaken. */
+  renameOwner: (username: string) => Promise<void>;
   resendVerification: () => Promise<void>;
   checkVerified: () => Promise<boolean>;
   resetPassword: (email: string) => Promise<void>;
@@ -130,6 +133,8 @@ export function TraqiProvider({ children }: { children: React.ReactNode }) {
   const [ws, setWs] = useState<Workspace>(emptyWorkspace());
   const [user, setUser] = useState<CurrentUser>({ role: '', id: '', name: '', perms: [] });
   const [fbUser, setFbUser] = useState<User | null>(null);
+  const fbUserRef = useRef<User | null>(null);
+  fbUserRef.current = fbUser;
   const [stage, setStage] = useState<AuthStage>('loading');
   const [currency, setCurrency] = useState<'NGN' | 'USD'>('NGN');
   const [toast, setToast] = useState<Toast>(null);
@@ -402,6 +407,12 @@ export function TraqiProvider({ children }: { children: React.ReactNode }) {
         if (cfg.pin) saveCreds(u.uid, { pin: cfg.pin }).catch(() => {});
         /* Fold in any invitations claimed while the owner was away. */
         syncAssistantClaims(merged).catch(() => {});
+        /* Accounts made before every owner name went into the registry get
+           theirs registered now, so nobody else can sign up under it. Best
+           effort: a name someone else already holds simply stays unregistered. */
+        if (cfg.ownerName && cfg.ownerName !== 'Owner') {
+          claimUsername(cfg.ownerName, u.email || cfg.email || '', u.uid, 'owner').catch(() => false);
+        }
       }
       /* This account has now signed in on this browser — remember it (and any
          later PIN change) so username + PIN can bring it back, Google included. */
@@ -509,7 +520,10 @@ export function TraqiProvider({ children }: { children: React.ReactNode }) {
     /* Usernames are unique product-wide, and the address must not already be
        signed up the other way — both checked before an account is created, so
        a rejected sign-up leaves nothing behind. */
-    if (!(await isUsernameFree(username))) throw new UsernameTaken(username.trim());
+    username = cleanUsername(username);
+    const problem = usernameProblem(username);
+    if (problem) throw new Error(problem);
+    if (!(await isUsernameFree(username))) throw new UsernameTaken(username);
     const known = await lookupEmail(email);
     if (known && known.provider === 'google') throw new WrongSignInMethod('google');
 
@@ -559,6 +573,11 @@ export function TraqiProvider({ children }: { children: React.ReactNode }) {
   const completeGoogleProfile = useCallback(async (username: string, pin: string, biz: string) => {
     const u = auth.currentUser;
     if (!u) throw new Error('Not signed in');
+    username = cleanUsername(username);
+    const problem = usernameProblem(username);
+    if (problem) throw new Error(problem);
+    if (!(await isUsernameFree(username, { uid: u.uid }))) throw new UsernameTaken(username);
+    if (!(await claimUsername(username, u.email || '', u.uid, 'owner'))) throw new UsernameTaken(username);
     isOwnerSession.current = true;
     const cfg: Config = { ...DEFAULT_CONFIG, bizName: biz, ownerName: username, email: u.email || '', pin };
     await saveWorkspace(u.uid, redactSecrets({
@@ -578,6 +597,31 @@ export function TraqiProvider({ children }: { children: React.ReactNode }) {
        follows profile completion rather than verification. */
     setStage('plan');
   }, []);
+
+  const renameOwner = useCallback(async (name: string) => {
+    /* The session the app is showing is the one the auth listener handed us.
+       auth.currentUser can briefly read empty while Firebase restores or
+       refreshes it, so wait that out and fall back to the listener's user. */
+    let u = auth.currentUser || fbUserRef.current;
+    if (!u) {
+      await auth.authStateReady().catch(() => {});
+      u = auth.currentUser || fbUserRef.current;
+    }
+    if (!u) throw new Error('Your session has ended — sign out and sign back in, then try again.');
+    const next = cleanUsername(name);
+    const cfg = wsRef.current.config;
+    const prev = cfg.ownerName || '';
+    if (next === prev) return;
+    const problem = usernameProblem(next);
+    if (problem) throw new Error(problem);
+    /* The registry goes first: if the name is taken nothing else changes. */
+    await renameUsername(prev, next, u.email || cfg.email || '', u.uid, 'owner');
+    moveBundle(prev, next);
+    saveConfig({ ownerName: next });
+    await saveWorkspace(u.uid, { username: next }).catch(() => {});
+    updateProfile(u, { displayName: next }).catch(() => {});
+    setUser(cur => (cur.role === 'owner' ? { ...cur, name: next } : cur));
+  }, [saveConfig]);
 
   const resendVerification = useCallback(async () => {
     if (auth.currentUser) await sendEmailVerification(auth.currentUser);
@@ -806,7 +850,7 @@ export function TraqiProvider({ children }: { children: React.ReactNode }) {
     linkedAssistant: !!assistantLink,
     joinAsAssistant,
     followUpsDone, markFollowUpDone,
-    signInPin, signInPassword, register, googleAuth, completeGoogleProfile,
+    signInPin, signInPassword, register, googleAuth, completeGoogleProfile, renameOwner,
     resendVerification, checkVerified, resetPassword, finishOnboarding,
     chooseRole, switchRole, logout, roleCandidates
   }), [ws, user, fbUser, stage, currency, toast, cloudOk, save, saveConfig, saveTargets, log,
@@ -814,7 +858,7 @@ export function TraqiProvider({ children }: { children: React.ReactNode }) {
       chooseIndustry, addCategory, customerTypes, addCustomerType, customerSources, addCustomerSource,
       assistantLink, joinAsAssistant,
       followUpsDone, markFollowUpDone, signInPin, signInPassword,
-      register, googleAuth, completeGoogleProfile, resendVerification, checkVerified,
+      register, googleAuth, completeGoogleProfile, renameOwner, resendVerification, checkVerified,
       resetPassword, finishOnboarding, chooseRole, switchRole, logout, roleCandidates]);
 
   return <TraqiContext.Provider value={value}>{children}</TraqiContext.Provider>;
