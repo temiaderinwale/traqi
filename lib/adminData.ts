@@ -10,7 +10,8 @@ import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { adminDb } from './adminFirebase';
 import {
   BusinessSummary, MonthPoint, PlatformMetrics, Plan, PLANS, PLAN_PRICE,
-  NewsletterAudience, PilotSignupRecord, PilotStatus, PILOT_STATUSES, C
+  NewsletterAudience, PilotSignupRecord, PilotStatus, PILOT_STATUSES,
+  TeamApplicationRecord, TeamStatus, TEAM_STATUSES, C
 } from './adminTypes';
 
 const num = (v: any) => (typeof v === 'number' && isFinite(v) ? v : Number(v) || 0);
@@ -249,6 +250,58 @@ export async function setPilotNote(id: string, adminNote: string) {
     leaves the working list rather than the database. */
 export async function setPilotArchived(id: string, archived: boolean, by: string) {
   await updateDoc(doc(adminDb, C.pilot, id), {
+    archived,
+    archivedAt: archived ? new Date().toISOString() : '',
+    archivedBy: archived ? by : ''
+  });
+}
+
+/* ---------- Join the Traqi Team ----------
+   Volunteer applications from /team, read and triaged exactly as the pilot
+   ones are — whole collection, sorted here, archived rather than deleted. */
+export function readTeamApplication(id: string, d: Record<string, any>): TeamApplicationRecord {
+  const status = str(d.status).toLowerCase();
+  return {
+    id,
+    firstName: str(d.firstName),
+    surname: str(d.surname),
+    email: str(d.email),
+    whatsapp: str(d.whatsapp),
+    location: str(d.location),
+    role: str(d.role),
+    occupation: str(d.occupation),
+    availability: str(d.availability),
+    portfolio: str(d.portfolio),
+    experience: str(d.experience),
+    motivation: str(d.motivation),
+    status: (TEAM_STATUSES as string[]).includes(status) ? (status as TeamStatus) : 'new',
+    adminNote: str(d.adminNote),
+    reviewedAt: str(d.reviewedAt),
+    reviewedBy: str(d.reviewedBy),
+    createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : str(d.createdAt),
+    archived: d.archived === true,
+    archivedAt: str(d.archivedAt),
+    archivedBy: str(d.archivedBy)
+  };
+}
+
+export async function fetchTeamApplications(): Promise<TeamApplicationRecord[]> {
+  const snap = await getDocs(collection(adminDb, C.team));
+  return snap.docs
+    .map(d => readTeamApplication(d.id, d.data() as Record<string, any>))
+    .sort((a, b) => (b.createdAt || '9999').localeCompare(a.createdAt || '9999'));
+}
+
+export async function setTeamStatus(id: string, status: TeamStatus, by: string) {
+  await updateDoc(doc(adminDb, C.team, id), {
+    status, reviewedAt: new Date().toISOString(), reviewedBy: by
+  });
+}
+export async function setTeamNote(id: string, adminNote: string) {
+  await updateDoc(doc(adminDb, C.team, id), { adminNote });
+}
+export async function setTeamArchived(id: string, archived: boolean, by: string) {
+  await updateDoc(doc(adminDb, C.team, id), {
     archived,
     archivedAt: archived ? new Date().toISOString() : '',
     archivedBy: archived ? by : ''

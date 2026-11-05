@@ -254,6 +254,44 @@ service cloud.firestore {
       allow delete: if isSuper();
     }
 
+    /* ---------- Join the Traqi Team ---------- */
+    /* Volunteer applications from /team. Open to create for the same reason
+       as /pilotSignups, and pinned down the same way: fixed shape, bounded
+       lengths, one role from the flier's list, nothing readable outside the
+       console. The portfolio link is optional and gets a little more room. */
+    match /teamApplications/{id} {
+      allow get, list: if isAdmin();
+      allow create: if request.resource.data.keys().hasOnly([
+              'firstName', 'surname', 'email', 'whatsapp', 'location', 'role',
+              'occupation', 'availability', 'portfolio', 'experience', 'motivation',
+              'status', 'source', 'createdAt'])
+        && request.resource.data.keys().hasAll([
+              'firstName', 'surname', 'email', 'whatsapp', 'location', 'role',
+              'occupation', 'availability', 'experience', 'motivation', 'status', 'source'])
+        && shortText(request.resource.data.firstName, 1)
+        && shortText(request.resource.data.surname, 1)
+        && shortText(request.resource.data.email, 5)
+        && shortText(request.resource.data.whatsapp, 7)
+        && shortText(request.resource.data.location, 1)
+        && request.resource.data.role in [
+              'Operations & Customer Support', 'Technical Assistant',
+              'Social Media Manager', 'Content Creator',
+              'Marketing & Communications Associate']
+        && shortText(request.resource.data.occupation, 1)
+        && shortText(request.resource.data.availability, 1)
+        && (!('portfolio' in request.resource.data)
+            || (request.resource.data.portfolio is string
+                && request.resource.data.portfolio.size() <= 300))
+        && longText(request.resource.data.experience, 1)
+        && longText(request.resource.data.motivation, 1)
+        && request.resource.data.status == 'new'
+        && request.resource.data.source == 'team';
+      allow update: if isAdmin() && changedKeys()
+        .hasOnly(['status', 'adminNote', 'reviewedAt', 'reviewedBy',
+                  'archived', 'archivedAt', 'archivedBy']);
+      allow delete: if isSuper();
+    }
+
     /* ---------- console collections ---------- */
     match /newsletters/{id} {
       allow read, create, update: if isAdmin();
@@ -264,6 +302,7 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow write: if isAdmin();
     }
+    
 
     /* Delivery queue for the Firebase "Trigger Email from Firestore"
        extension. Admins queue newsletters; a business owner may queue exactly

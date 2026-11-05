@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import {
-  Activity, BarChart3, Building2, ChevronDown, CreditCard, LayoutDashboard, LogOut, Mail,
+  Activity, BarChart3, Building2, ChevronDown, CreditCard, Handshake, LayoutDashboard, LogOut, Mail,
   Menu, Moon, RefreshCw, Rocket, ShieldCheck, Sun, Server, Users
 } from 'lucide-react';
 import { useAdmin } from '@/lib/adminStore';
@@ -22,13 +22,14 @@ import Subscriptions from './modules/Subscriptions';
 import People from './modules/People';
 import Newsletters from './modules/Newsletters';
 import PilotSignups from './modules/PilotSignups';
+import TeamApplications from './modules/TeamApplications';
 import AdminTeam from './modules/AdminTeam';
 import AuditLog from './modules/AuditLog';
 import System from './modules/System';
 
 type ModuleKey =
   | 'overview' | 'businesses' | 'transactions' | 'subscriptions'
-  | 'people' | 'pilot' | 'newsletters' | 'team' | 'audit' | 'system';
+  | 'people' | 'pilot' | 'volunteers' | 'newsletters' | 'team' | 'audit' | 'system';
 
 const MODULES: {
   key: ModuleKey; title: string; short: string; sub: string; icon: any; group: string;
@@ -40,6 +41,8 @@ const MODULES: {
   { key: 'subscriptions', title: 'Plans & Subscriptions', short: 'Plans', sub: 'Plan mix, trials and recurring revenue', icon: CreditCard, group: 'Revenue', Body: Subscriptions },
   { key: 'people', title: 'Users & Teams', short: 'People', sub: 'Owners, assistants and the setup funnel', icon: Users, group: 'Revenue', Body: People },
   { key: 'pilot', title: 'Pilot Applications', short: 'Pilot', sub: 'Early users who applied through the pilot page', icon: Rocket, group: 'Engagement', Body: PilotSignups },
+  /* Keyed 'volunteers' because 'team' is already the admin roster below. */
+  { key: 'volunteers', title: 'Join the Traqi Team', short: 'Volunteers', sub: 'Volunteers who applied through the team page', icon: Handshake, group: 'Engagement', Body: TeamApplications },
   { key: 'newsletters', title: 'Newsletters', short: 'Mail', sub: 'Compose, segment and send to business owners', icon: Mail, group: 'Engagement', Body: Newsletters },
   { key: 'team', title: 'Admin Team', short: 'Admins', sub: 'Access requests and the admin roster', icon: ShieldCheck, group: 'Console', badge: 'pending', Body: AdminTeam },
   { key: 'audit', title: 'Audit Log', short: 'Audit', sub: 'Every privileged action taken in this console', icon: Activity, group: 'Console', Body: AuditLog },

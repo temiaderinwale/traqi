@@ -20,13 +20,17 @@ const LABEL: Record<string, string> = {
   pilot_new: 'Pilot applicant reopened', pilot_contacted: 'Pilot applicant contacted',
   pilot_approved: 'Pilot applicant approved', pilot_declined: 'Pilot applicant declined',
   pilot_note: 'Pilot note saved',
-  pilot_archived: 'Pilot applicant archived', pilot_restored: 'Pilot applicant restored'
+  pilot_archived: 'Pilot applicant archived', pilot_restored: 'Pilot applicant restored',
+  team_new: 'Team applicant reopened', team_contacted: 'Team applicant contacted',
+  team_interviewed: 'Team applicant interviewed', team_onboarded: 'Team applicant onboarded',
+  team_declined: 'Team applicant declined', team_note: 'Team note saved',
+  team_archived: 'Team applicant archived', team_restored: 'Team applicant restored'
 };
 
 const TONE = (a: string) =>
   a.includes('suspend') || a.includes('reject') || a.includes('decline') || a.includes('delete') ? 'red'
     : a.includes('approve') || a.includes('restore') ? 'green'
-      : a.includes('newsletter') ? 'indigo' : a.startsWith('pilot') ? 'blue' : 'slate';
+      : a.includes('newsletter') ? 'indigo' : a.startsWith('pilot') || a.startsWith('team_') ? 'blue' : 'slate';
 
 export default function AuditLog() {
   const { audit, refreshAudit } = useAdmin();

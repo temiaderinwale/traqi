@@ -169,6 +169,39 @@ export type PilotSignupRecord = {
   archivedBy: string;
 };
 
+/* ---------- Join the Traqi Team ----------
+   Volunteer applications from /team. Same shape of life as a pilot record —
+   written once by the applicant, triaged here — with its own pipeline, since
+   a volunteer is interviewed and onboarded rather than approved. */
+export type TeamStatus = 'new' | 'contacted' | 'interviewed' | 'onboarded' | 'declined';
+export const TEAM_STATUSES: TeamStatus[] = ['new', 'contacted', 'interviewed', 'onboarded', 'declined'];
+export const TEAM_LABEL: Record<TeamStatus, string> = {
+  new: 'New', contacted: 'Contacted', interviewed: 'Interviewed', onboarded: 'Onboarded', declined: 'Declined'
+};
+
+export type TeamApplicationRecord = {
+  id: string;
+  firstName: string;
+  surname: string;
+  email: string;
+  whatsapp: string;
+  location: string;
+  role: string;
+  occupation: string;
+  availability: string;
+  portfolio: string;
+  experience: string;
+  motivation: string;
+  status: TeamStatus;
+  adminNote: string;
+  reviewedAt: string;
+  reviewedBy: string;
+  createdAt: string;             // ISO, from the server timestamp
+  archived: boolean;
+  archivedAt: string;
+  archivedBy: string;
+};
+
 /* ---------- Admin audit ---------- */
 export type AdminAudit = {
   id: string;
@@ -188,5 +221,6 @@ export const C = {
   unsubs: 'newsletterUnsubs',
   audit: 'adminAudit',
   mail: 'mail',                  // Firebase "Trigger Email" extension queue
-  pilot: 'pilotSignups'          // applications from the unlinked /pilot page
+  pilot: 'pilotSignups',         // applications from the unlinked /pilot page
+  team: 'teamApplications'       // volunteer applications from /team
 } as const;

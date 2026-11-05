@@ -42,7 +42,7 @@ export const NAV: NavItem[] = [
   { key: 'customers', href: '/customers', title: 'Customers', icon: Users, group: 'Customers', perm: 'view_customers', fab: { label: 'Add customer', perm: 'add_customers' } },
   { key: 'followups', href: '/followups', title: 'Follow-Up Tracker', icon: BellRing, group: 'Customers', perm: 'view_followups', feature: 'followups' },
   { key: 'templates', href: '/templates', title: 'WhatsApp Templates', icon: MessageSquareText, group: 'Customers', perm: 'use_templates' },
-  { key: 'team', href: '/team', title: 'Team', icon: UserCog, group: 'Management', owner: true, feature: 'team', fab: { label: 'Register assistant', owner: true } },
+  { key: 'team', href: '/assistants', title: 'Team', icon: UserCog, group: 'Management', owner: true, feature: 'team', fab: { label: 'Register assistant', owner: true } },
   { key: 'tasks', href: '/tasks', title: 'Tasks', icon: ListChecks, group: 'Management', badge: 'tasks', feature: 'tasks', fab: { label: 'Assign task', owner: true } },
   { key: 'approvals', href: '/approvals', title: 'Approvals', icon: ShieldCheck, group: 'Management', owner: true, badge: 'approvals', feature: 'team' },
   { key: 'messages', href: '/messages', title: 'Messages', icon: MessagesSquare, group: 'Management', badge: 'messages', feature: 'team', fab: { label: 'New message' } },

@@ -76,7 +76,7 @@ function Slide({ src, role, kind }: { src: string; role: Role; kind: Kind }) {
   );
 }
 
-export default function PilotCarousel({ images }: { images: string[] }) {
+export default function PilotCarousel({ images, label = 'Traqi in use' }: { images: string[]; label?: string }) {
   const n = images.length;
   const [view, setView] = useState<View>({ i: 0, prev: -1, kind: 'fade' });
   const [paused, setPaused] = useState(false);
@@ -123,7 +123,7 @@ export default function PilotCarousel({ images }: { images: string[] }) {
 
       <div
         className="relative aspect-square w-full overflow-hidden rounded-[2rem] border border-white/15 bg-indigo-950 shadow-2xl shadow-indigo-900/25"
-        role="group" aria-roledescription="carousel" aria-label="Traqi in use"
+        role="group" aria-roledescription="carousel" aria-label={label}
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
         onTouchStart={e => { touchX.current = e.touches[0].clientX; }}
